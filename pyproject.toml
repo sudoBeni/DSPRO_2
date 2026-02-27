@@ -11,4 +11,18 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",
+    "ruff>=0.15.4",
 ]
+
+[tool.ruff]
+# Target Python version
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "PL", "NPY", "PD"]
+ignore = ["E731"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
