@@ -24,6 +24,7 @@ dev = [
 # Target Python version
 target-version = "py312"
 line-length = 88
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "PL", "NPY", "PD"]
