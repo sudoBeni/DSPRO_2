@@ -326,7 +326,7 @@ wheels = [
 [[package]]
 name = "citall"
 version = "0.2.4"
-source = { git = "https://github.com/slackers-dev/citall.git?rev=main#9e274a8e01f559666f3f8588f17bb547af17d634" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
@@ -334,6 +334,10 @@ dependencies = [
     { name = "plotly" },
     { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/80/09/893f326ead06ddea6734d2ccf7811f82064e74e0f22a4418a9a377a4bf97/citall-0.2.4.tar.gz", hash = "sha256:61f3cc88398edd2878aecc1c239f682535130256233091a8fde085cf59160918", size = 19402, upload-time = "2026-03-22T17:10:54.346Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/cc/edb65c137449a2942e829e6f4152d38ac4e90b40853498b8f1f88b71bfcf/citall-0.2.4-py3-none-any.whl", hash = "sha256:2ee875b3ba7efc5a1d5f0675780840218b203809d14b5f2239664515daf0ee18", size = 17635, upload-time = "2026-03-22T17:10:52.69Z" },
 ]
 
 [[package]]
@@ -810,7 +814,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "citall", git = "https://github.com/slackers-dev/citall.git?rev=main" },
+    { name = "citall", specifier = "==0.2.4" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "google-genai", specifier = ">=1.47.0" },
     { name = "ipykernel", specifier = ">=6.31.0" },

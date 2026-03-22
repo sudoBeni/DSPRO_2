@@ -39,6 +39,3 @@ ignore = ["E731"]
 quote-style = "double"
 indent-style = "space"
 exclude = ["*.ipynb"]
-
-[tool.uv.sources]
-citall = { git = "https://github.com/slackers-dev/citall.git", rev = "main" }
