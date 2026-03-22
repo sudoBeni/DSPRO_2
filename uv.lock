@@ -308,6 +308,19 @@ wheels = [
 ]
 
 [[package]]
+name = "citall"
+version = "0.2.2"
+source = { git = "https://github.com/slackers-dev/citall.git?tag=v0.2.2#cdd8269b8c694a33be8bc0e5a3588f67c3012b41" }
+dependencies = [
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "numpy", version = "2.4.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "plotly" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "torch", version = "2.10.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+
+[[package]]
 name = "click"
 version = "8.3.1"
 source = { registry = "https://pypi.org/simple" }
@@ -750,6 +763,7 @@ name = "dspro"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "citall" },
     { name = "dotenv" },
     { name = "google-genai", version = "1.47.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "google-genai", version = "1.67.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -780,6 +794,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "citall", git = "https://github.com/slackers-dev/citall.git?tag=v0.2.2" },
     { name = "dotenv", specifier = ">=0.9.9" },
     { name = "google-genai", specifier = ">=1.47.0" },
     { name = "ipykernel", specifier = ">=6.31.0" },
