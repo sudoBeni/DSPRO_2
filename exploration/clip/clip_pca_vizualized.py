@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import torch
-from citall import generate_pca_html_from_multimodal
+from citall import pca3d_explorer
 
 
 def main() -> None:
@@ -14,9 +14,8 @@ def main() -> None:
     embeddings = payload["embeddings"]
     rows = payload["rows"]
 
-    output, summary = generate_pca_html_from_multimodal(
-        embeddings=embeddings,
-        rows=rows,
+    output, summary = pca3d_explorer(
+        vectors_pt={"embeddings": embeddings, "rows": rows},
         metadata_path=metadata_path,
         images_dir=images_dir,
         hover_fields=["rent_chf", "postal_code"],
@@ -25,6 +24,7 @@ def main() -> None:
         open_browser=True,
         return_summary=True,
     )
+    print(summary)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "citall==0.2.1",
+    "citall==0.2.4",
     "dotenv>=0.9.9",
     "google-genai>=1.47.0",
     "ipykernel>=6.31.0",
@@ -41,4 +41,4 @@ indent-style = "space"
 exclude = ["*.ipynb"]
 
 [tool.uv.sources]
-citall = { git = "https://github.com/slackers-dev/citall.git", tag = "v0.2.2" }
+citall = { git = "https://github.com/slackers-dev/citall.git", rev = "main" }
