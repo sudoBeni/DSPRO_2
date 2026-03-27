@@ -1,25 +1,36 @@
 "use client"
 
 import Image from "next/image"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { onboardingImages } from "@/data/onboarding-images"
 
 type AnswerMap = Record<string, boolean>
+
+type OnboardingImageCard = {
+  id: string
+  label: string
+  base64: string
+}
 
 const SWIPE_THRESHOLD = 120
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const [cards, setCards] = useState<OnboardingImageCard[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<AnswerMap>({})
 
-  const current = onboardingImages[index]
-  const total = onboardingImages.length
-  const progress = useMemo(() => ((index + 1) / total) * 100, [index, total])
+  const current = cards[index]
+  const total = cards.length
+  const progress = useMemo(() => {
+    if (total === 0) return 0
+    return ((index + 1) / total) * 100
+  }, [index, total])
 
   function handleAnswer(value: boolean) {
     if (!current) return
@@ -54,7 +65,60 @@ export default function OnboardingPage() {
     setIndex((prev) => prev + 1)
   }
 
-  if (!current) return null
+  useEffect(() => {
+    async function loadOnboardingCards() {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const res = await fetch("http://localhost:8000/api/recommendations/onboarding")
+
+        if (!res.ok) {
+          throw new Error("Failed to load onboarding cards")
+        }
+
+        const data: OnboardingImageCard[] = await res.json()
+        setCards(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Something went wrong")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadOnboardingCards()
+  }, [])
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-white text-neutral-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-4 py-6">
+          <p className="text-sm text-neutral-500">Loading onboarding images...</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (error) {
+    return (
+      <main className="min-h-screen bg-white text-neutral-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
+          <p className="text-sm text-red-600">{error}</p>
+          <Button onClick={() => window.location.reload()}>Try again</Button>
+        </div>
+      </main>
+    )
+  }
+
+  if (!current) {
+    return (
+      <main className="min-h-screen bg-white text-neutral-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-4 py-6">
+          <p className="text-sm text-neutral-500">No onboarding images available.</p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-white text-neutral-900">
@@ -98,7 +162,7 @@ export default function OnboardingPage() {
               whileDrag={{ rotate: 8, scale: 1.02 }}
             >
               <Image
-                src={current.image}
+                src={current.base64}
                 alt={current.label}
                 fill
                 priority
