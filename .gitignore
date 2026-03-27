@@ -8,6 +8,10 @@
 
 *.pyc
 
+src/app/__pycache__/
+
+.python-version
+
 # dependencies
 frontend/node_modules
 frontend/.pnp
