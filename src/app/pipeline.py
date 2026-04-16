@@ -69,19 +69,11 @@ class Pipeline:
             for score, idx in zip(top_scores.tolist(), top_indices.tolist()):
                 matched_row = rows[idx]
                 matched_object_id = str(matched_row["object_id"])
-                matched_listing = listing_by_object_id.get(matched_object_id)
-
-                if matched_listing is None:
-                    continue
 
                 scored_listings.append(
                     {
                         "score": float(score),
-                        "index": idx,
                         "object_id": matched_object_id,
-                        "embedding_row": row_by_object_id[matched_object_id],
-                        "listing": matched_listing,
-                        "source_liked_image_id": image.id,
                     }
                 )
 
