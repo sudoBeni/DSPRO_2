@@ -4,8 +4,16 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
+class OnboardingImage(BaseModel):
+    id: str = Field(..., description="Unique identifier for the onboarding image.")
+    label: str = Field(
+        ..., description="A tag representing the user's preferred style."
+    )
+    base64: str = Field(..., description="Base64-encoded image data.")
+    
+
 class SearchProfileRequest(BaseModel):
-    liked_images: List[str] = Field(default_factory=list)
+    liked_images: List[OnboardingImage] = Field(default_factory=list)
     top_k: int = Field(default=10, ge=1, le=100)
 
 
@@ -21,16 +29,8 @@ class ListingResponse(BaseModel):
     image_paths: List[str] = Field(default_factory=list)
 
 
-class OnboardingImageResponse(BaseModel):
-    id: str = Field(..., description="Unique identifier for the onboarding image.")
-    label: str = Field(
-        ..., description="A tag representing the user's preferred style."
-    )
-    base64: str = Field(..., description="Base64-encoded image data.")
-
-
 __all__ = [
     "SearchProfileRequest",
     "ListingResponse",
-    "OnboardingImageResponse",
+    "OnboardingImage",
 ]
