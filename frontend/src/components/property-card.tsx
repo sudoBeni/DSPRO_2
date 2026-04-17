@@ -19,15 +19,13 @@ export function PropertyCard({ property, onSave }: Props) {
       {/* Image */}
       <div className="relative h-64 w-full">
         <Image
-          src={property.image}
-          alt={property.title}
+          src={property.image_names?.[0] ? `/data/images/${property.image_names[0]}` : "/placeholder.jpg"}
+          alt={property.short_description || "Property image"}
           fill
           className="object-cover"
         />
-
-        {/* Match score */}
         <Badge className="absolute top-3 left-3 bg-black/70 backdrop-blur">
-          {property.matchScore}% Match
+          {property.match_score}% Match
         </Badge>
       </div>
 
@@ -35,22 +33,22 @@ export function PropertyCard({ property, onSave }: Props) {
 
         {/* Title */}
         <h3 className="text-lg font-semibold leading-tight">
-          {property.title}
+          {property.short_description || "Untitled Property"}
         </h3>
 
         {/* Price */}
         <p className="text-xl font-bold text-primary">
-          CHF {property.price.toLocaleString()}
+          {property.rent_chf}
         </p>
 
         {/* Meta info */}
         <div className="text-sm text-muted-foreground">
-          {property.rooms} rooms • {property.area} m² • {property.city}
+          {property.n_rooms}, {property.street}, {property.postal_code}
         </div>
 
         {/* AI explanation */}
         <div className="text-sm bg-muted p-3 rounded-lg">
-          {property.reason}
+          {property.source_url || "Recommended based on your preferences"}
         </div>
 
         {/* Actions */}
@@ -61,7 +59,7 @@ export function PropertyCard({ property, onSave }: Props) {
 
           <Button
             size="sm"
-            onClick={() => onSave?.(property.id)}
+            onClick={() => onSave?.(property.object_id)}
             className="flex items-center gap-2"
           >
             <Heart size={16} />

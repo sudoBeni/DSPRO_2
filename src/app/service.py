@@ -20,6 +20,7 @@ class RecommendationService:
         self._images_path = Path(images_path)
         self._embedding_store = self._load_embedding_store()
         self._listings = self._load_listings()
+        self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
 
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
         pipeline = Pipeline(self._embedding_store, self._listings)
@@ -52,6 +53,16 @@ class RecommendationService:
         with self._data_path.open("r", encoding="utf-8") as f:
             return [json.loads(line) for line in f if line.strip()]
 
+    def _index_listings_by_object_id(
+        self,
+        listings: List[Dict[str, Any]],
+    ) -> Dict[str, Dict[str, Any]]:
+        return {
+            str(listing.get("object_id", "")): listing
+            for listing in listings
+            if listing.get("object_id") is not None
+        }
+
 
     def _load_embedding_store(
         self,
@@ -69,26 +80,31 @@ class RecommendationService:
 
     def _to_listing_response(self, item: Dict[str, Any]) -> ListingResponse:
         object_id = str(item.get("object_id", ""))
-        image_paths = self._get_image_paths(item)
+        listing = self._listings_by_object_id.get(object_id)
+
+        if listing is None:
+            raise ValueError(f"No listing found for object_id '{object_id}'")
+
+        image_names = self._get_image_names(object_id)
 
         return ListingResponse(
             object_id=object_id,
-            n_rooms=str(item.get("n_rooms", "")),
-            living_area_m2=str(item.get("living_area_m2", "")),
-            rent_chf=str(item.get("rent_chf", "")),
-            short_description=item.get("short_description"),
-            street=str(item.get("street", "")),
-            postal_code=str(item.get("postal_code", "")),
-            source_url=str(item.get("source_url", "")),
-            image_paths=image_paths,
+            n_rooms=str(listing.get("n_rooms", "")),
+            living_area_m2=str(listing.get("living_area_m2", "")),
+            rent_chf=str(listing.get("rent_chf", "")),
+            short_description=listing.get("short_description"),
+            street=str(listing.get("street", "")),
+            postal_code=str(listing.get("postal_code", "")),
+            source_url=str(listing.get("source_url", "")),
+            image_names=image_names,
+            match_score=float(item.get("score", 0.0)),
         )
 
 
-    def _get_image_paths(self, item: Dict[str, Any]) -> List[str]:
-        image_paths = item.get("image_paths")
-        if isinstance(image_paths, list):
-            return [str(path) for path in image_paths]
-        return []
+    def _get_image_names(self, object_id: str) -> List[str]:
+        matching_images = list(self._images_path.glob(f"*{object_id}*.jpg"))
+
+        return [path.name for path in matching_images]
 
 
 __all__ = ["RecommendationService"]

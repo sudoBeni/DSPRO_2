@@ -1,11 +1,24 @@
 "use client"
 
-import { useState } from "react"
-import { properties } from "@/data/mock-properties"
+import { useEffect, useState } from "react"
+import { Property } from "@/types/property"
 import { PropertyCard } from "@/components/property-card"
 
 export default function FeedPage() {
   const [saved, setSaved] = useState<string[]>([])
+  const [recommendations, setRecommendations] = useState<Property[]>([])
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("recommendations")
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored)
+        setRecommendations(parsed)
+      } catch (e) {
+        console.error("Failed to parse recommendations", e)
+      }
+    }
+  }, [])
 
   function handleSave(id: string) {
     setSaved([...saved, id])
@@ -16,9 +29,12 @@ export default function FeedPage() {
 
       <h1 className="text-2xl font-bold">Recommended for you</h1>
 
-      {properties.map((property) => (
+      {recommendations.length === 0 && (
+        <p className="text-sm text-muted-foreground">No recommendations found.</p>
+      )}
+      {recommendations.map((property) => (
         <PropertyCard
-          key={property.id}
+          key={property.object_id}
           property={property}
           onSave={handleSave}
         />

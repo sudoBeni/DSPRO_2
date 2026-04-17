@@ -15,6 +15,11 @@ type OnboardingImageCard = {
   base64: string
 }
 
+type SearchProfileRequest = {
+  liked_images: OnboardingImageCard[]
+  top_k: number
+}
+
 const SWIPE_THRESHOLD = 120
 
 export default function OnboardingPage() {
@@ -24,6 +29,7 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null)
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<AnswerMap>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const current = cards[index]
   const total = cards.length
@@ -32,8 +38,49 @@ export default function OnboardingPage() {
     return ((index + 1) / total) * 100
   }, [index, total])
 
+  function buildSearchPayload(nextAnswers: AnswerMap): SearchProfileRequest {
+    const likedImages = cards.filter((card) => nextAnswers[card.id] === true)
+
+    return {
+      liked_images: likedImages,
+      top_k: 10,
+    }
+  }
+
+  async function submitSearch(nextAnswers: AnswerMap) {
+    const payload = buildSearchPayload(nextAnswers)
+
+    sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
+    sessionStorage.setItem("searchRequest", JSON.stringify(payload))
+
+    setIsSubmitting(true)
+    setError(null)
+
+    try {
+      const res = await fetch("http://localhost:8000/api/recommendations/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to create recommendations")
+      }
+
+      const recommendations = await res.json()
+      sessionStorage.setItem("recommendations", JSON.stringify(recommendations))
+      router.push("/feed")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   function handleAnswer(value: boolean) {
-    if (!current) return
+    if (!current || isSubmitting) return
 
     const nextAnswers = {
       ...answers,
@@ -44,8 +91,7 @@ export default function OnboardingPage() {
 
     const isLast = index === total - 1
     if (isLast) {
-      sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
-      router.push("/feed")
+      void submitSearch(answers)
       return
     }
 
@@ -53,12 +99,11 @@ export default function OnboardingPage() {
   }
 
   function handleSkip() {
-    if (!current) return
+    if (!current || isSubmitting) return
 
     const isLast = index === total - 1
     if (isLast) {
-      sessionStorage.setItem("onboardingAnswers", JSON.stringify(answers))
-      router.push("/feed")
+      void submitSearch(answers)
       return
     }
 
@@ -93,7 +138,9 @@ export default function OnboardingPage() {
     return (
       <main className="min-h-screen bg-white text-neutral-900">
         <div className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-4 py-6">
-          <p className="text-sm text-neutral-500">Loading onboarding images...</p>
+          <p className="text-sm text-neutral-500">
+            {isSubmitting ? "Creating your recommendations..." : "Loading onboarding images..."}
+          </p>
         </div>
       </main>
     )
@@ -149,6 +196,8 @@ export default function OnboardingPage() {
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.18}
               onDragEnd={(_, info) => {
+                if (isSubmitting) return
+
                 if (info.offset.x > SWIPE_THRESHOLD) {
                   handleAnswer(true)
                 } else if (info.offset.x < -SWIPE_THRESHOLD) {
@@ -192,6 +241,7 @@ export default function OnboardingPage() {
             variant="outline"
             className="rounded-2xl border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100"
             onClick={() => handleAnswer(false)}
+            disabled={isSubmitting}
           >
             No
           </Button>
@@ -200,12 +250,13 @@ export default function OnboardingPage() {
             variant="ghost"
             className="rounded-2xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
             onClick={handleSkip}
+            disabled={isSubmitting}
           >
             Skip
           </Button>
 
-          <Button className="rounded-2xl" onClick={() => handleAnswer(true)}>
-            Yes
+          <Button className="rounded-2xl" onClick={() => handleAnswer(true)} disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Yes"}
           </Button>
         </div>
 

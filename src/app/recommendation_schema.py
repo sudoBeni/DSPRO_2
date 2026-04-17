@@ -10,7 +10,7 @@ class OnboardingImage(BaseModel):
         ..., description="A tag representing the user's preferred style."
     )
     base64: str = Field(..., description="Base64-encoded image data.")
-    
+
 
 class SearchProfileRequest(BaseModel):
     liked_images: List[OnboardingImage] = Field(default_factory=list)
@@ -26,7 +26,8 @@ class ListingResponse(BaseModel):
     street: str = Field(...)
     postal_code: str = Field(...)
     source_url: str = Field(...)
-    image_paths: List[str] = Field(default_factory=list)
+    image_names: List[str] = Field(default_factory=list)
+    match_score: float = Field(...)
 
 
 __all__ = [

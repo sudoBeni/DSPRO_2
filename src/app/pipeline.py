@@ -36,7 +36,6 @@ class Pipeline:
         embeddings = self._embedding_store["embeddings"].float()
         rows = self._embedding_store["rows"]
         object_ids = [str(row["object_id"]) for row in rows]
-        row_by_object_id = {str(row["object_id"]): row for row in rows}
         listing_by_object_id = {
             str(listing["object_id"]): listing for listing in self._listings
         }
