@@ -7,3 +7,7 @@
 .DS_Store
 
 *.pyc
+
+/frontend/.next/*
+/frontend/node_modules/*
+next-env.d.ts
