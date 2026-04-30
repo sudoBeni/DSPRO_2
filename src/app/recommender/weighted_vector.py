@@ -10,7 +10,6 @@ class WeightedVectorRecommender(BaseRecommender):
         rated_items: list[RatedItem],
         top_k: int = 10,
         include_liked: bool = True,
-        excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         liked_indices = [
             self._id_to_idx[item.object_id]
@@ -27,7 +26,7 @@ class WeightedVectorRecommender(BaseRecommender):
             return []
 
         # Build query vector: sum liked embeddings, subtract disliked embeddings
-        query = torch.zeros(self._embeddings.shape[1], device=self._embeddings.device)
+        query = torch.zeros(self._embeddings.shape[1])
         for idx in liked_indices:
             query = query + self._embeddings[idx]
         for idx in disliked_indices:
@@ -40,9 +39,7 @@ class WeightedVectorRecommender(BaseRecommender):
 
         sims = self._embeddings @ query
 
-        excluded_indices = self._build_excluded_indices(
-            rated_items, include_liked, excluded_ids
-        )
+        excluded_indices = self._build_excluded_indices(rated_items, include_liked)
         for idx in excluded_indices:
             sims[idx] = -2.0
 

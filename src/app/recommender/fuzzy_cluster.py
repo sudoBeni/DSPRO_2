@@ -25,7 +25,7 @@ class FuzzyClusterRecommender(BaseRecommender):
                 break
         self._n_clusters = n_clusters
 
-        memberships = torch.zeros(len(rows), n_clusters, device=self._embeddings.device)
+        memberships = torch.zeros(len(rows), n_clusters)
         for i, row in enumerate(rows):
             cm = row.get("cluster_memberships") or {}
             for c_str, val in cm.items():
@@ -37,12 +37,9 @@ class FuzzyClusterRecommender(BaseRecommender):
         rated_items: list[RatedItem],
         top_k: int = 10,
         include_liked: bool = True,
-        excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         dim = self._embeddings.shape[1]
-        cluster_vectors = torch.zeros(
-            self._n_clusters, dim, device=self._embeddings.device
-        )  # [n_clusters, D]
+        cluster_vectors = torch.zeros(self._n_clusters, dim)  # [n_clusters, D]
         has_signal = False
 
         for item in rated_items:
@@ -70,9 +67,7 @@ class FuzzyClusterRecommender(BaseRecommender):
         # weight each cluster's similarity by the candidate item's membership in that cluster
         scores = (cluster_sims * self._memberships).sum(dim=1)  # [N]
 
-        excluded_indices = self._build_excluded_indices(
-            rated_items, include_liked, excluded_ids
-        )
+        excluded_indices = self._build_excluded_indices(rated_items, include_liked)
         for idx in excluded_indices:
             scores[idx] = -float("inf")
 
