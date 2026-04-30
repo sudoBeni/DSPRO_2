@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List
+
 import torch
-
-
-from app.recommendation_schema import ListingResponse, SearchProfileRequest
 from app.pipeline import Pipeline
+from app.recommendation_schema import ListingResponse, SearchProfileRequest
 
 
 class RecommendationService:
@@ -15,6 +15,7 @@ class RecommendationService:
         self,
         hard_data_path: str = "../data/apartments.jsonl",
         images_path: str = "../data/images",
+        strategy: str | None = None,
     ) -> None:
         self._data_path = Path(hard_data_path)
         self._images_path = Path(images_path)
@@ -22,10 +23,11 @@ class RecommendationService:
         self._listings = self._load_listings()
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
 
-    def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
-        pipeline = Pipeline(self._embedding_store, self._listings)
+        resolved_strategy = strategy or os.getenv("RECOMMENDER_STRATEGY", "gemini")
+        self._pipeline = Pipeline(self._embedding_store, strategy=resolved_strategy)
 
-        ranked = pipeline.run(request.liked_images, request.top_k)
+    def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
+        ranked = self._pipeline.run(request.liked_images, request.top_k)
 
         return [self._to_listing_response(item) for item in ranked]
 
@@ -33,10 +35,7 @@ class RecommendationService:
         if not self._images_path.exists():
             return []
 
-        all_images = [
-            p
-            for p in self._images_path.glob("*.jpg")
-        ]
+        all_images = [p for p in self._images_path.glob("*.jpg")]
 
         if not all_images:
             return []
@@ -44,7 +43,6 @@ class RecommendationService:
         import random
 
         return random.sample(all_images, min(10, len(all_images)))
-
 
     def _load_listings(self) -> List[Dict[str, Any]]:
         if not self._data_path.exists():
@@ -63,7 +61,6 @@ class RecommendationService:
             if listing.get("object_id") is not None
         }
 
-
     def _load_embedding_store(
         self,
         path: Path | None = None,
@@ -76,7 +73,6 @@ class RecommendationService:
         embedding_store = torch.load(path, map_location=device)
 
         return embedding_store
-
 
     def _to_listing_response(self, item: Dict[str, Any]) -> ListingResponse:
         object_id = str(item.get("object_id", ""))
@@ -99,7 +95,6 @@ class RecommendationService:
             image_names=image_names,
             match_score=float(item.get("score", 0.0)),
         )
-
 
     def _get_image_names(self, object_id: str) -> List[str]:
         matching_images = list(self._images_path.glob(f"*{object_id}*.jpg"))
