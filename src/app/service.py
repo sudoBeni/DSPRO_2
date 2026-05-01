@@ -13,8 +13,8 @@ from app.pipeline import Pipeline
 class RecommendationService:
     def __init__(
         self,
-        hard_data_path: str = "../data/apartments.jsonl",
-        images_path: str = "../data/images",
+        hard_data_path: str = "../data/cleaned_apartements_processed.jsonl",
+        images_path: str = "../data/selected_images/",
     ) -> None:
         self._data_path = Path(hard_data_path)
         self._images_path = Path(images_path)
@@ -34,7 +34,7 @@ class RecommendationService:
 
         all_images = [
             p
-            for p in self._images_path.glob("*.jpg")
+            for p in self._images_path.glob("**/*.jpg")
         ]
 
         if not all_images:
@@ -101,8 +101,7 @@ class RecommendationService:
 
 
     def _get_image_names(self, object_id: str) -> List[str]:
-        matching_images = list(self._images_path.glob(f"*{object_id}*.jpg"))
-
+        matching_images = list(self._images_path.glob(f"{object_id}/*.jpg"))
         return [path.name for path in matching_images]
 
 

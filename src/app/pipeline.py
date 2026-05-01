@@ -15,7 +15,6 @@ from app.recommendation_schema import HardFactsForm
 
 MODEL = "gemini-embedding-2-preview"
 TASK_TYPE = "SEMANTIC_SIMILARITY"
-IMAGES_DIR = Path("data/images")
 
 class Pipeline:
     def __init__(self, embedding_store: dict[str, Any], listings: list[dict]) -> None:

@@ -21,7 +21,9 @@ export default function FeedPage() {
   }, [])
 
   function handleSave(id: string) {
-    setSaved([...saved, id])
+    setSaved((previousSaved) =>
+      previousSaved.includes(id) ? previousSaved : [...previousSaved, id]
+    )
   }
 
   return (
@@ -32,9 +34,9 @@ export default function FeedPage() {
       {recommendations.length === 0 && (
         <p className="text-sm text-muted-foreground">No recommendations found.</p>
       )}
-      {recommendations.map((property) => (
+      {recommendations.map((property, index) => (
         <PropertyCard
-          key={property.object_id}
+          key={`${property.object_id}-${index}`}
           property={property}
           onSave={handleSave}
         />
