@@ -18,7 +18,7 @@ TASK_TYPE = "SEMANTIC_SIMILARITY"
 IMAGES_DIR = Path("data/images")
 
 class Pipeline:
-    def __init__(self, embedding_store: dict[str, Any], listings: list[dict], hard_facts: HardFactsForm) -> None:
+    def __init__(self, embedding_store: dict[str, Any], listings: list[dict]) -> None:
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
         if not self.GEMINI_API_KEY:
             raise RuntimeError("set GEMINI_API_KEY in your environment variables.")
@@ -28,8 +28,6 @@ class Pipeline:
         self._embedding_store = embedding_store
 
         self._listings = listings
-        
-        self._hard_facts = hard_facts
 
 
     def run(self, liked_images: list[OnboardingImage], top_k: int = 10, hard_facts: HardFactsForm = {}) -> list[dict[str, Any]]:
@@ -48,10 +46,10 @@ class Pipeline:
             if not listing:
                 raise ValueError(f"Listing with object_id {listing_id} not found.")
 
-            text_prompt = self._create_text_prompt(listing)
+            text_prompt = self._create_text_prompt(listing, hard_facts.location)
 
             # TODO: get all images for the listing and create multimodal embedding
-            liked_embedding = self._create_embedding([image.base64], text_prompt, hard_facts.postal_code)
+            liked_embedding = self._create_embedding([image.base64], text_prompt)
 
             if embeddings.shape[1] != liked_embedding.shape[0]:
                 raise ValueError(
@@ -76,7 +74,7 @@ class Pipeline:
                 if not matched_listing:
                     continue
                 
-                if not self._in_hard_facts_range(matched_listing, hard_facts):
+                if not self._is_in_hard_facts_range(matched_listing, hard_facts):
                     continue
                 
                 scored_listings.append(
@@ -94,7 +92,7 @@ class Pipeline:
 
         return ranked_listings
     
-    def _in_hard_facts_range(self, listing: dict, hard_facts: dict) -> bool:
+    def _is_in_hard_facts_range(self, listing: dict, hard_facts: dict) -> bool:
         
         rent_check = False
         room_check = False
@@ -119,25 +117,21 @@ class Pipeline:
         return rent_check & room_check
     
 
-    def _create_text_prompt(self, listing):
-        postal_code = str(listing.get("postal_code") or "Stadt unbekannt").strip()
-        city = postal_code.split(" ", 1)[1] if " " in postal_code else postal_code
+    def _create_text_prompt(self, listing, location: str):
+        postal_code = location.split(" ")[0]
+        city = location.split(" ")[1]
+        
         short_description = str(
-                listing.get("short_description") or "keine kurz Beschreibung vorhanden"
+                listing.get("short_description") or "Keine Kurzbeschreibung vorhanden."
             ).strip()
-        n_rooms = str(listing.get("n_rooms") or "Anzahl Zimmer unbekannt").strip()
-        living_area_m2 = str(
-                listing.get("living_area_m2") or "Wohnfläche unbekannt"
-            ).strip()
-        rent_chf = str(listing.get("rent_chf") or "Miete unbekannt").strip()
+        
         description = " ".join(
-                str(listing.get("description") or "keine Beschreibung vorhanden").split()
+                str(listing.get("description") or "Keine Beschreibung vorhanden.").split()
             )[:300]
 
         text_prompt = (
-                f"Immobilie in {city}: {short_description}. "
-                f"die Immobilie hat {n_rooms} und {living_area_m2}. "
-                f"Die monatliche Miete ist {rent_chf}. "
+                f"Wichtiger Standortwunsch: {postal_code} {city}."
+                f"Kurzbeschrieb: {short_description}"
                 f"Eigenschaften: {description}."
             )
 
@@ -152,11 +146,10 @@ class Pipeline:
         return match.group(1)
 
 
-    def _create_embedding(self, images, text_prompt: str, postal_code: str):
+    def _create_embedding(self, images, text_prompt: str):
         image_bytes = [self._decode_base64_image(image) for image in images]
 
-        parts = [types.Part.from_text(text=text_prompt),
-                 types.Part.from_text(text=postal_code)]
+        parts = [types.Part.from_text(text=text_prompt)]
         for image_byte in image_bytes:
             parts.append(
                 types.Part.from_bytes(

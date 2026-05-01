@@ -23,7 +23,7 @@ class RecommendationService:
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
 
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
-        pipeline = Pipeline(self._embedding_store, self._listings, request.hard_facts)
+        pipeline = Pipeline(self._embedding_store, self._listings)
         ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
 
         return [self._to_listing_response(item) for item in ranked]

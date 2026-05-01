@@ -13,7 +13,7 @@ class OnboardingImage(BaseModel):
 
 
 class HardFactsForm(BaseModel):
-    postal_code: str = Field(...)
+    location: str = Field(...)
     min_rooms: float | None = None
     max_rent_chf: int | None = None
     
