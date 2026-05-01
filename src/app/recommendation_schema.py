@@ -12,7 +12,14 @@ class OnboardingImage(BaseModel):
     base64: str = Field(..., description="Base64-encoded image data.")
 
 
+class HardFactsForm(BaseModel):
+    postal_code: str = Field(...)
+    min_rooms: float | None = None
+    max_rent_chf: int | None = None
+    
+
 class SearchProfileRequest(BaseModel):
+    hard_facts: HardFactsForm = Field(...)
     liked_images: List[OnboardingImage] = Field(default_factory=list)
     top_k: int = Field(default=10, ge=1, le=100)
 
@@ -34,4 +41,5 @@ __all__ = [
     "SearchProfileRequest",
     "ListingResponse",
     "OnboardingImage",
+    "HardFactsForm"
 ]

@@ -16,7 +16,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import POSTAL_CODE_OPTIONS from "@/data/postal_codes.json"
 
-type HardFactsForm = {
+export type HardFactsForm = {
   postal_code: string
   min_rooms: string
   max_rent_chf: string

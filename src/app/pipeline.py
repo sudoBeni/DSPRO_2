@@ -4,7 +4,6 @@ from pathlib import Path
 import torch
 import base64
 import re
-import json
 
 from typing import Any
 
@@ -12,13 +11,14 @@ from google import genai
 from google.genai import types
 
 from app.recommendation_schema import OnboardingImage
+from app.recommendation_schema import HardFactsForm
 
 MODEL = "gemini-embedding-2-preview"
 TASK_TYPE = "SEMANTIC_SIMILARITY"
 IMAGES_DIR = Path("data/images")
 
 class Pipeline:
-    def __init__(self, embedding_store: dict[str, Any], listings: list[dict]) -> None:
+    def __init__(self, embedding_store: dict[str, Any], listings: list[dict], hard_facts: HardFactsForm) -> None:
         self.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
         if not self.GEMINI_API_KEY:
             raise RuntimeError("set GEMINI_API_KEY in your environment variables.")
@@ -28,9 +28,11 @@ class Pipeline:
         self._embedding_store = embedding_store
 
         self._listings = listings
+        
+        self._hard_facts = hard_facts
 
 
-    def run(self, liked_images: list[OnboardingImage], top_k: int = 10) -> list[dict[str, Any]]:
+    def run(self, liked_images: list[OnboardingImage], top_k: int = 10, hard_facts: HardFactsForm = {}) -> list[dict[str, Any]]:
         scored_listings: list[dict[str, Any]] = []
 
         embeddings = self._embedding_store["embeddings"].float()
@@ -49,7 +51,7 @@ class Pipeline:
             text_prompt = self._create_text_prompt(listing)
 
             # TODO: get all images for the listing and create multimodal embedding
-            liked_embedding = self._create_embedding([image.base64], text_prompt)
+            liked_embedding = self._create_embedding([image.base64], text_prompt, hard_facts.postal_code)
 
             if embeddings.shape[1] != liked_embedding.shape[0]:
                 raise ValueError(
@@ -68,7 +70,15 @@ class Pipeline:
             for score, idx in zip(top_scores.tolist(), top_indices.tolist()):
                 matched_row = rows[idx]
                 matched_object_id = str(matched_row["object_id"])
-
+                
+                matched_listing = listing_by_object_id.get(matched_object_id)
+                
+                if not matched_listing:
+                    continue
+                
+                if not self._in_hard_facts_range(matched_listing, hard_facts):
+                    continue
+                
                 scored_listings.append(
                     {
                         "score": float(score),
@@ -83,6 +93,31 @@ class Pipeline:
         )
 
         return ranked_listings
+    
+    def _in_hard_facts_range(self, listing: dict, hard_facts: dict) -> bool:
+        
+        rent_check = False
+        room_check = False
+        
+        #Hardfacts
+        min_rooms = int(hard_facts.min_rooms)
+        max_rent_chf = int(hard_facts.max_rent_chf)
+        
+        #Listing stuff
+        try:    
+            n_rooms = float(listing.get("n_rooms").split(" ")[0])
+            rent = int(re.sub(r"\D", "", listing.get("rent_chf")))
+        except Exception:
+            return False
+        
+        if rent <= max_rent_chf:
+            rent_check = True
+            
+        if n_rooms >= min_rooms:
+            room_check = True
+            
+        return rent_check & room_check
+    
 
     def _create_text_prompt(self, listing):
         postal_code = str(listing.get("postal_code") or "Stadt unbekannt").strip()
@@ -117,10 +152,11 @@ class Pipeline:
         return match.group(1)
 
 
-    def _create_embedding(self, images, text_prompt: str):
+    def _create_embedding(self, images, text_prompt: str, postal_code: str):
         image_bytes = [self._decode_base64_image(image) for image in images]
 
-        parts = [types.Part.from_text(text=text_prompt)]
+        parts = [types.Part.from_text(text=text_prompt),
+                 types.Part.from_text(text=postal_code)]
         for image_byte in image_bytes:
             parts.append(
                 types.Part.from_bytes(

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { HardFactsForm } from "../hardfacts/page"
 
 type AnswerMap = Record<string, boolean>
 
@@ -16,6 +17,7 @@ type OnboardingImageCard = {
 }
 
 type SearchProfileRequest = {
+  hard_facts: HardFactsForm
   liked_images: OnboardingImageCard[]
   top_k: number
 }
@@ -40,8 +42,10 @@ export default function OnboardingPage() {
 
   function buildSearchPayload(nextAnswers: AnswerMap): SearchProfileRequest {
     const likedImages = cards.filter((card) => nextAnswers[card.id] === true)
+    const hardFacts = JSON.parse(sessionStorage.getItem("hardFacts") ?? "{}")
 
     return {
+      hard_facts: hardFacts,
       liked_images: likedImages,
       top_k: 10,
     }
@@ -91,7 +95,7 @@ export default function OnboardingPage() {
 
     const isLast = index === total - 1
     if (isLast) {
-      void submitSearch(answers)
+      void submitSearch(nextAnswers)
       return
     }
 
