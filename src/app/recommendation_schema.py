@@ -1,5 +1,4 @@
 from typing import List, Optional
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
