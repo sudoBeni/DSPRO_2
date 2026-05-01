@@ -4,7 +4,6 @@ from pathlib import Path
 import torch
 import base64
 import re
-import json
 
 from typing import Any
 
@@ -12,6 +11,7 @@ from google import genai
 from google.genai import types
 
 from app.recommendation_schema import OnboardingImage
+from app.recommendation_schema import HardFactsForm
 
 MODEL = "gemini-embedding-2-preview"
 TASK_TYPE = "SEMANTIC_SIMILARITY"
@@ -30,7 +30,7 @@ class Pipeline:
         self._listings = listings
 
 
-    def run(self, liked_images: list[OnboardingImage], top_k: int = 10) -> list[dict[str, Any]]:
+    def run(self, liked_images: list[OnboardingImage], top_k: int = 10, hard_facts: HardFactsForm = {}) -> list[dict[str, Any]]:
         scored_listings: list[dict[str, Any]] = []
 
         embeddings = self._embedding_store["embeddings"].float()
@@ -46,7 +46,7 @@ class Pipeline:
             if not listing:
                 raise ValueError(f"Listing with object_id {listing_id} not found.")
 
-            text_prompt = self._create_text_prompt(listing)
+            text_prompt = self._create_text_prompt(listing, hard_facts.location)
 
             # TODO: get all images for the listing and create multimodal embedding
             liked_embedding = self._create_embedding([image.base64], text_prompt)
@@ -68,7 +68,15 @@ class Pipeline:
             for score, idx in zip(top_scores.tolist(), top_indices.tolist()):
                 matched_row = rows[idx]
                 matched_object_id = str(matched_row["object_id"])
-
+                
+                matched_listing = listing_by_object_id.get(matched_object_id)
+                
+                if not matched_listing:
+                    continue
+                
+                if not self._is_in_hard_facts_range(matched_listing, hard_facts):
+                    continue
+                
                 scored_listings.append(
                     {
                         "score": float(score),
@@ -83,26 +91,47 @@ class Pipeline:
         )
 
         return ranked_listings
+    
+    def _is_in_hard_facts_range(self, listing: dict, hard_facts: dict) -> bool:
+        
+        rent_check = False
+        room_check = False
+        
+        #Hardfacts
+        min_rooms = int(hard_facts.min_rooms)
+        max_rent_chf = int(hard_facts.max_rent_chf)
+        
+        #Listing stuff
+        try:    
+            n_rooms = float(listing.get("n_rooms").split(" ")[0])
+            rent = int(re.sub(r"\D", "", listing.get("rent_chf")))
+        except Exception:
+            return False
+        
+        if rent <= max_rent_chf:
+            rent_check = True
+            
+        if n_rooms >= min_rooms:
+            room_check = True
+            
+        return rent_check & room_check
+    
 
-    def _create_text_prompt(self, listing):
-        postal_code = str(listing.get("postal_code") or "Stadt unbekannt").strip()
-        city = postal_code.split(" ", 1)[1] if " " in postal_code else postal_code
+    def _create_text_prompt(self, listing, location: str):
+        postal_code = location.split(" ")[0]
+        city = location.split(" ")[1]
+        
         short_description = str(
-                listing.get("short_description") or "keine kurz Beschreibung vorhanden"
+                listing.get("short_description") or "Keine Kurzbeschreibung vorhanden."
             ).strip()
-        n_rooms = str(listing.get("n_rooms") or "Anzahl Zimmer unbekannt").strip()
-        living_area_m2 = str(
-                listing.get("living_area_m2") or "Wohnfläche unbekannt"
-            ).strip()
-        rent_chf = str(listing.get("rent_chf") or "Miete unbekannt").strip()
+        
         description = " ".join(
-                str(listing.get("description") or "keine Beschreibung vorhanden").split()
+                str(listing.get("description") or "Keine Beschreibung vorhanden.").split()
             )[:300]
 
         text_prompt = (
-                f"Immobilie in {city}: {short_description}. "
-                f"die Immobilie hat {n_rooms} und {living_area_m2}. "
-                f"Die monatliche Miete ist {rent_chf}. "
+                f"Wichtiger Standortwunsch: {postal_code} {city}."
+                f"Kurzbeschrieb: {short_description}"
                 f"Eigenschaften: {description}."
             )
 

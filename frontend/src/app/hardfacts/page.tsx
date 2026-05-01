@@ -16,8 +16,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import POSTAL_CODE_OPTIONS from "@/data/postal_codes.json"
 
-type HardFactsForm = {
-  postal_code: string
+export type HardFactsForm = {
+  location: string
   min_rooms: string
   max_rent_chf: string
 }
@@ -36,7 +36,7 @@ export default function HardFactsPage() {
   const [openRent, setOpenRent] = useState(false)
 
   const [form, setForm] = useState<HardFactsForm>({
-    postal_code: "",
+    location: "",
     min_rooms: "",
     max_rent_chf: "",
   })
@@ -51,19 +51,19 @@ export default function HardFactsPage() {
   }
 
   const isValid = useMemo(() => {
-    return form.postal_code.trim() !== ""
+    return form.location.trim() !== ""
   }, [form])
 
   function handleContinue() {
     setError(null)
 
-    if (!form.postal_code.trim()) {
+    if (!form.location.trim()) {
       setError("Please select a location.")
       return
     }
 
     const payload = {
-      postal_code: form.postal_code,
+      location: form.location,
       min_rooms: form.min_rooms ? Number(form.min_rooms.replace("+", "")) : undefined,
       max_rent_chf: form.max_rent_chf
         ? Number(form.max_rent_chf.replace("+", ""))
@@ -97,10 +97,10 @@ export default function HardFactsPage() {
                   variant="outline"
                   className={`${triggerClass} ${
                     openLocation ? "border-neutral-400 bg-neutral-50" : ""
-                  } ${!form.postal_code ? "text-neutral-400" : "text-neutral-900"}`}
+                  } ${!form.location ? "text-neutral-400" : "text-neutral-900"}`}
                 >
                   <span className="truncate">
-                    {form.postal_code || "Select a location"}
+                    {form.location || "Select a location"}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
@@ -122,13 +122,13 @@ export default function HardFactsPage() {
                           value={option}
                           className="cursor-pointer data-[selected=true]:bg-neutral-200"
                           onSelect={(value) => {
-                            updateField("postal_code", value)
+                            updateField("location", value)
                             setOpenLocation(false)
                           }}
                         >
                           <Check
                             className={`mr-2 h-4 w-4 ${
-                              form.postal_code === option
+                              form.location === option
                                 ? "opacity-100"
                                 : "opacity-0"
                             }`}

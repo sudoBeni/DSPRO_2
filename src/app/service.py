@@ -24,8 +24,7 @@ class RecommendationService:
 
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
         pipeline = Pipeline(self._embedding_store, self._listings)
-
-        ranked = pipeline.run(request.liked_images, request.top_k)
+        ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
 
         return [self._to_listing_response(item) for item in ranked]
 
