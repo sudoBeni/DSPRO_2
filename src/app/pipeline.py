@@ -92,23 +92,28 @@ class Pipeline:
             sims = self._embeddings @ query_tensor
             sims[self._object_ids.index(listing_id)] = -1.0
 
+            # Fetch candidates until we have at least top_k after filtering
             k = min(top_k, sims.shape[0])
-            top_scores, top_indices = torch.topk(sims, k=k)
+            while len(scored) < top_k and k < sims.shape[0]:
+                top_scores, top_indices = torch.topk(sims, k=k)
 
-            for score, idx in zip(
-                top_scores.tolist(), top_indices.tolist(), strict=False
-            ):
-                matched_id = str(self._rows[idx]["object_id"])
-                matched_listing = self._listing_by_object_id.get(matched_id)
-                if not matched_listing:
-                    continue
-                if hard_facts and not self._passes_hard_facts(
-                    matched_listing, hard_facts
+                for score, idx in zip(
+                    top_scores.tolist(), top_indices.tolist(), strict=False
                 ):
-                    continue
-                scored.append({"object_id": matched_id, "score": float(score)})
+                    matched_id = str(self._rows[idx]["object_id"])
+                    matched_listing = self._listing_by_object_id.get(matched_id)
+                    if not matched_listing:
+                        continue
+                    if hard_facts and not self._passes_hard_facts(
+                        matched_listing, hard_facts
+                    ):
+                        continue
+                    scored.append({"object_id": matched_id, "score": float(score)})
 
-        return sorted(scored, key=lambda x: x["score"], reverse=True)
+                if len(scored) < top_k:
+                    k = min(k + top_k, sims.shape[0])
+
+        return sorted(scored, key=lambda x: x["score"], reverse=True)[:top_k]
 
     # --- Pre-computed embedding path ---
 
