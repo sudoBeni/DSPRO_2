@@ -80,7 +80,7 @@ class Pipeline:
                 raise ValueError(f"Listing with object_id {listing_id} not found.")
 
             text_prompt = self._create_text_prompt(listing)
-            query_embedding = self._create_embedding([image.base64], text_prompt)
+            query_embedding = self._create_embedding(image.images, text_prompt)
 
             if self._embeddings.shape[1] != query_embedding.shape[0]:
                 raise ValueError(
@@ -156,10 +156,12 @@ class Pipeline:
 
     # --- Gemini utilities ---
 
-    def _parse_listing_id(self, image_path: str) -> str:
-        match = re.search(r"apartment_(\d+)_\d+", image_path)
+    def _parse_listing_id(self, image_id: str) -> str:
+        if re.fullmatch(r"\d+", image_id):
+            return image_id
+        match = re.search(r"apartment_(\d+)_\d+", image_id)
         if not match:
-            raise ValueError(f"Invalid image path format: {image_path}")
+            raise ValueError(f"Invalid image id format: {image_id}")
         return match.group(1)
 
     def _create_text_prompt(self, listing: dict) -> str:

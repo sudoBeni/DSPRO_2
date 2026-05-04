@@ -37,18 +37,18 @@ class RecommendationService:
 
         return [self._to_listing_response(item) for item in ranked]
 
-    def get_onboarding_images(self) -> List[Path]:
+    def get_onboarding_objects(self, n: int = 10) -> list[tuple[str, list[Path]]]:
         if not self._images_path.exists():
-            return []
-
-        all_images = [p for p in self._images_path.glob("**/*.jpg")]
-
-        if not all_images:
             return []
 
         import random
 
-        return random.sample(all_images, min(10, len(all_images)))
+        obj_dirs = [d for d in self._images_path.iterdir() if d.is_dir()]
+        if not obj_dirs:
+            return []
+
+        selected = random.sample(obj_dirs, min(n, len(obj_dirs)))
+        return [(d.name, sorted(d.glob("*.jpg"))) for d in selected]
 
     def _load_listings(self) -> List[Dict[str, Any]]:
         if not self._data_path.exists():

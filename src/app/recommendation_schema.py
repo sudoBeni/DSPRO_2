@@ -4,18 +4,18 @@ from pydantic import BaseModel, Field
 
 
 class OnboardingImage(BaseModel):
-    id: str = Field(..., description="Unique identifier for the onboarding image.")
+    id: str = Field(..., description="Object ID of the apartment.")
     label: str = Field(
         ..., description="A tag representing the user's preferred style."
     )
-    base64: str = Field(..., description="Base64-encoded image data.")
+    images: List[str] = Field(..., description="Base64-encoded images for this object.")
 
 
 class HardFactsForm(BaseModel):
     location: str = Field(...)
     min_rooms: float | None = None
     max_rent_chf: int | None = None
-    
+
 
 class SearchProfileRequest(BaseModel):
     hard_facts: HardFactsForm = Field(...)
@@ -40,5 +40,5 @@ __all__ = [
     "SearchProfileRequest",
     "ListingResponse",
     "OnboardingImage",
-    "HardFactsForm"
+    "HardFactsForm",
 ]
