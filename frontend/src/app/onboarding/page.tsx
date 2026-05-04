@@ -57,7 +57,12 @@ export default function OnboardingPage() {
   }
 
   async function submitSearch(nextAnswers: AnswerMap) {
-    const payload = buildSearchPayload(nextAnswers)
+    const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
+    const payload = {
+      ...buildSearchPayload(nextAnswers),
+      strategy: session.strategy ?? "gemini",
+      seed: session.seed ?? 42,
+    }
 
     sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
     sessionStorage.setItem("searchRequest", JSON.stringify(payload))
@@ -66,7 +71,8 @@ export default function OnboardingPage() {
     setError(null)
 
     try {
-      const res = await fetch("http://localhost:8000/api/recommendations/search", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/api/recommendations/search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -125,7 +131,18 @@ export default function OnboardingPage() {
         setIsLoading(true)
         setError(null)
 
-        const res = await fetch("http://localhost:8000/api/recommendations/onboarding")
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+        let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
+        if (!session) {
+          const sessionRes = await fetch(`${apiUrl}/api/session`)
+          session = await sessionRes.json()
+          sessionStorage.setItem("session", JSON.stringify(session))
+        }
+
+        const res = await fetch(
+          `${apiUrl}/api/recommendations/onboarding?strategy=${session.strategy}&seed=${session.seed}`
+        )
 
         if (!res.ok) {
           throw new Error("Failed to load onboarding cards")
@@ -133,6 +150,7 @@ export default function OnboardingPage() {
 
         const data: OnboardingImageCard[] = await res.json()
         setCards(data)
+        sessionStorage.setItem("onboardingCardIds", JSON.stringify(data.map((c) => c.id)))
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong")
       } finally {

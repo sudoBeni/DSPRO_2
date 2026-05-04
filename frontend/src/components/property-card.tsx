@@ -6,14 +6,23 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Property } from "@/types/property"
-import { ChevronLeft, ChevronRight, Heart } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const RATING_LABELS: Record<number, string> = {
+  1: "Strongly disagree",
+  2: "Somewhat disagree",
+  3: "Somewhat agree",
+  4: "Strongly agree",
+}
 
 type Props = {
   property: Property
-  onSave?: (id: string) => void
+  rating?: number
+  onRate?: (rating: number) => void
 }
 
-export function PropertyCard({ property, onSave }: Props) {
+export function PropertyCard({ property, rating, onRate }: Props) {
   const imageNames = property.image_names ?? []
   const [activeImageIndex, setActiveImageIndex] = useState(0)
 
@@ -99,21 +108,35 @@ export function PropertyCard({ property, onSave }: Props) {
           {property.source_url || "Recommended based on your preferences"}
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-between items-center pt-2">
-          <Button variant="outline" size="sm">
-            Details
-          </Button>
-
-          <Button
-            size="sm"
-            onClick={() => onSave?.(property.object_id)}
-            className="flex items-center gap-2"
-          >
-            <Heart size={16} />
-            Save
-          </Button>
-        </div>
+        {/* Rating */}
+        {onRate && (
+          <div className="pt-2 border-t space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">
+              Does this match your taste?
+            </p>
+            <div className="grid grid-cols-4 gap-1">
+              {[1, 2, 3, 4].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => onRate(r)}
+                  title={RATING_LABELS[r]}
+                  className={cn(
+                    "py-1.5 rounded border text-sm font-medium transition-colors",
+                    rating === r
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-input bg-background hover:bg-muted"
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Strongly disagree</span>
+              <span>Strongly agree</span>
+            </div>
+          </div>
+        )}
 
       </CardContent>
     </Card>
