@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -25,19 +24,23 @@ class RecommendationService:
         self._listings = self._load_listings()
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
 
-        resolved_strategy = strategy or os.getenv("RECOMMENDER_STRATEGY", "gemini")
-        self._pipeline = Pipeline(
-            self._embedding_store, self._listings, strategy=resolved_strategy
-        )
+        self._pipelines: dict[str, Pipeline] = {}
+
+    def _get_pipeline(self, strategy: str) -> Pipeline:
+        if strategy not in self._pipelines:
+            self._pipelines[strategy] = Pipeline(
+                self._embedding_store, self._listings, strategy=strategy
+            )
+        return self._pipelines[strategy]
 
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
-        ranked = self._pipeline.run(
-            request.liked_images, request.top_k, request.hard_facts
-        )
-
+        pipeline = self._get_pipeline(request.strategy)
+        ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
         return [self._to_listing_response(item) for item in ranked]
 
-    def get_onboarding_objects(self, n: int = 10) -> list[tuple[str, list[Path]]]:
+    def get_onboarding_objects(
+        self, n: int = 10, seed: int = 42
+    ) -> list[tuple[str, list[Path]]]:
         if not self._images_path.exists():
             return []
 
@@ -47,7 +50,7 @@ class RecommendationService:
         if not obj_dirs:
             return []
 
-        rng = random.Random(42)
+        rng = random.Random(seed)
         selected = rng.sample(obj_dirs, min(n, len(obj_dirs)))
         return [(d.name, sorted(d.glob("*.jpg"))) for d in selected]
 
