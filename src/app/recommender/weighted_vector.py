@@ -27,7 +27,7 @@ class WeightedVectorRecommender(BaseRecommender):
             return []
 
         # Build query vector: sum liked embeddings, subtract disliked embeddings
-        query = torch.zeros(self._embeddings.shape[1])
+        query = torch.zeros(self._embeddings.shape[1], device=self._embeddings.device)
         for idx in liked_indices:
             query = query + self._embeddings[idx]
         for idx in disliked_indices:
