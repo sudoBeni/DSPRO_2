@@ -15,7 +15,8 @@ from app.recommendation_schema import (
     SearchProfileRequest,
 )
 from app.service import RecommendationService
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +211,17 @@ def get_analytics() -> dict:
             "n_sessions": total,
         },
     }
+
+
+@router.get("/feedback/download")
+def download_feedback() -> FileResponse:
+    if not FEEDBACK_FILE.exists():
+        raise HTTPException(status_code=404, detail="No feedback data yet.")
+    return FileResponse(
+        path=FEEDBACK_FILE,
+        media_type="application/x-ndjson",
+        filename="feedback.jsonl",
+    )
 
 
 @router.post("/feedback")
