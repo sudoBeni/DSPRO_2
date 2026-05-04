@@ -1,12 +1,13 @@
 from pathlib import Path
 
-from app.api import router
 from dotenv import load_dotenv
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
+
+from app.api import router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
-load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
 
 app = FastAPI(title="PropertyFinder Backend")
 
