@@ -1,6 +1,8 @@
 import base64
+import fcntl
 import json
 import logging
+import math
 import random
 from datetime import datetime, timezone
 from pathlib import Path
@@ -72,15 +74,32 @@ FEEDBACK_FILE = Path("../data/feedback.jsonl")
 RECALL_LEVELS = [round(i * 0.1, 1) for i in range(11)]  # 0.0, 0.1, …, 1.0
 
 
+def _dcg(gains: list[float]) -> float:
+    return sum(g / math.log2(i + 2) for i, g in enumerate(gains))
+
+
+def _dcg_at_k(gains: list[float]) -> list[float]:
+    cumulative = 0.0
+    result = []
+    for i, g in enumerate(gains):
+        cumulative += g / math.log2(i + 2)
+        result.append(round(cumulative, 4))
+    return result
+
+
 def _session_metrics(session: dict) -> dict | None:
     ratings = sorted(session.get("ratings", []), key=lambda x: x["position"])
-    relevance = [1 if r["rating"] >= 3 else 0 for r in ratings]
+    gains = [r["rating"] for r in ratings]  # graded relevance 1-3 (or 0)
+    relevance = [1 if g >= 3 else 0 for g in gains]
     n = len(relevance)
     if n == 0:
         return None
 
     R = sum(relevance)
     p_at_k = sum(relevance) / n
+
+    dcg = _dcg(gains)
+    dcg_at_k = _dcg_at_k(gains)
 
     if R == 0:
         ap = 0.0
@@ -109,6 +128,8 @@ def _session_metrics(session: dict) -> dict | None:
         "strategy": session["strategy"],
         "p_at_k": p_at_k,
         "ap": ap,
+        "dcg": dcg,
+        "dcg_at_k": dcg_at_k,
         "pr_curve": pr_curve,
     }
 
@@ -160,12 +181,20 @@ def get_analytics() -> dict:
             }
             for i, rl in enumerate(RECALL_LEVELS)
         ]
+        max_k = max(len(s["dcg_at_k"]) for s in group)
+        avg_dcg_at_k = []
+        for k in range(max_k):
+            vals = [s["dcg_at_k"][k] for s in group if k < len(s["dcg_at_k"])]
+            avg_dcg_at_k.append(round(sum(vals) / len(vals), 4))
+
         strategy_results.append(
             {
                 "name": name,
                 "n_sessions": n,
                 "map": round(sum(s["ap"] for s in group) / n, 4),
                 "avg_p_at_k": round(sum(s["p_at_k"] for s in group) / n, 4),
+                "avg_dcg": round(sum(s["dcg"] for s in group) / n, 4),
+                "avg_dcg_at_k": avg_dcg_at_k,
                 "pr_curve": avg_pr_curve,
             }
         )
@@ -200,5 +229,6 @@ def submit_feedback(request: FeedbackRequest) -> dict:
     )
     FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
     with FEEDBACK_FILE.open("a", encoding="utf-8") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
     return {"status": "ok"}
