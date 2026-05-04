@@ -71,7 +71,8 @@ class Pipeline:
         top_k: int,
         hard_facts: HardFactsForm | None,
     ) -> list[dict[str, Any]]:
-        scored: list[dict[str, Any]] = []
+        # Keep only the best score per object_id across all liked images
+        best_scores: dict[str, float] = {}
 
         for image in liked_images:
             listing_id = self._parse_listing_id(image.id)
@@ -92,9 +93,10 @@ class Pipeline:
             sims = self._embeddings @ query_tensor
             sims[self._object_ids.index(listing_id)] = -1.0
 
-            # Fetch candidates until we have at least top_k after filtering
+            # Fetch candidates until we have at least top_k passing hard filters for this image
+            per_image_found: set[str] = set()
             k = min(top_k, sims.shape[0])
-            while len(scored) < top_k and k < sims.shape[0]:
+            while len(per_image_found) < top_k and k <= sims.shape[0]:
                 top_scores, top_indices = torch.topk(sims, k=k)
 
                 for score, idx in zip(
@@ -108,11 +110,21 @@ class Pipeline:
                         matched_listing, hard_facts
                     ):
                         continue
-                    scored.append({"object_id": matched_id, "score": float(score)})
+                    per_image_found.add(matched_id)
+                    score_val = float(score)
+                    if (
+                        matched_id not in best_scores
+                        or score_val > best_scores[matched_id]
+                    ):
+                        best_scores[matched_id] = score_val
 
-                if len(scored) < top_k:
-                    k = min(k + top_k, sims.shape[0])
+                if len(per_image_found) < top_k:
+                    new_k = min(k + top_k, sims.shape[0])
+                    if new_k == k:
+                        break
+                    k = new_k
 
+        scored = [{"object_id": oid, "score": s} for oid, s in best_scores.items()]
         return sorted(scored, key=lambda x: x["score"], reverse=True)[:top_k]
 
     # --- Pre-computed embedding path ---
