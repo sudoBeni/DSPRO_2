@@ -3,14 +3,11 @@
 *.jpg
 
 *.env
+*.env.docker
 
-<<<<<<< HEAD
 .DS_Store
 
 *.pyc
-=======
-.DS_Store# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
->>>>>>> 8311b7a8d86fbccbedb595b1ac286c8029decf9f
 
 src/app/__pycache__/
 
