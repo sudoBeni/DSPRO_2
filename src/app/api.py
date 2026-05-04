@@ -24,10 +24,20 @@ recommendation_service = RecommendationService()
 STRATEGIES = ["gemini", "weighted_vector", "k_nearest", "fuzzy_cluster"]
 SEEDS = [42, 123, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
 
+_strategy_deck: list[str] = []
+
+
+def _next_strategy() -> str:
+    """Return strategies in shuffled blocks of 4 so each appears equally often."""
+    global _strategy_deck
+    if not _strategy_deck:
+        _strategy_deck = random.sample(STRATEGIES, len(STRATEGIES))
+    return _strategy_deck.pop()
+
 
 @router.get("/session")
 def create_session() -> dict:
-    strategy = random.choice(STRATEGIES)
+    strategy = _next_strategy()
     seed = random.choice(SEEDS)
     logger.info("New session assigned — strategy=%s seed=%d", strategy, seed)
     return {"strategy": strategy, "seed": seed}
