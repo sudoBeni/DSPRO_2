@@ -15,10 +15,12 @@ class RecommendationService:
         self,
         hard_data_path: str = "../data/cleaned_apartements_processed.jsonl",
         images_path: str = "../data/selected_images/",
+        all_images_path: str = "../data/images/",
         strategy: str | None = None,
     ) -> None:
         self._data_path = Path(hard_data_path)
         self._images_path = Path(images_path)
+        self._all_images_path = Path(all_images_path)
         self._embedding_store = self._load_embedding_store()
         self._listings = self._load_listings()
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
@@ -101,8 +103,10 @@ class RecommendationService:
         )
 
     def _get_image_names(self, object_id: str) -> List[str]:
-        matching_images = list(self._images_path.glob(f"{object_id}/*.jpg"))
-        return [path.name for path in matching_images]
+        matching_images = list(
+            self._all_images_path.glob(f"apartment_{object_id}_*.jpg")
+        )
+        return sorted(path.name for path in matching_images)
 
 
 __all__ = ["RecommendationService"]

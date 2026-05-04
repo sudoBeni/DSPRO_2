@@ -1,11 +1,12 @@
-from dotenv import load_dotenv
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
 
 from app.api import router
+from dotenv import load_dotenv
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).resolve().parents[2] / ".env")
 
 app = FastAPI(title="PropertyFinder Backend")
 
@@ -18,6 +19,4 @@ app.add_middleware(
 )
 
 app.include_router(router)
-
-# run in dev mode with: uvicorn app.main:app --reload
-# IMPORTANT: make sure to run the command from the src/ directory, otherwise the relative paths to the data won't work.
+app.mount("/data/images", StaticFiles(directory="../data/images"), name="images")
