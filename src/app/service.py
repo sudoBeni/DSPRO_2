@@ -12,7 +12,7 @@ from app.recommendation_schema import ListingResponse, SearchProfileRequest
 class RecommendationService:
     def __init__(
         self,
-        hard_data_path: str = "../data/cleaned_apartements_processed.jsonl",
+        hard_data_path: str = "../data/cleaned_apartements_pt_aligned.jsonl",
         images_path: str = "../data/selected_images/",
         all_images_path: str = "../data/images/",
         strategy: str | None = None,
@@ -75,7 +75,7 @@ class RecommendationService:
         self,
         path: Path | None = None,
     ) -> dict[str, Any]:
-        path = path or Path("../embedding/gemini_embeddings_filtered.pt")
+        path = path or Path("../embedding/gemini_embeddings_clustered.pt")
         print(path)
         path = path.resolve()
 
