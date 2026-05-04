@@ -21,8 +21,6 @@ class SearchProfileRequest(BaseModel):
     hard_facts: HardFactsForm = Field(...)
     liked_images: List[OnboardingImage] = Field(default_factory=list)
     top_k: int = Field(default=10, ge=1, le=100)
-    strategy: str = Field(default="gemini")
-    seed: int = Field(default=42)
 
 
 class ListingResponse(BaseModel):
@@ -38,27 +36,9 @@ class ListingResponse(BaseModel):
     match_score: float = Field(...)
 
 
-class RatingItem(BaseModel):
-    position: int
-    object_id: str
-    rating: int  # 1=strongly disagree, 2=somewhat disagree, 3=somewhat agree, 4=strongly agree
-
-
-class FeedbackRequest(BaseModel):
-    strategy: str
-    seed: int
-    hard_facts: HardFactsForm
-    liked_object_ids: List[str]
-    disliked_object_ids: List[str]
-    skipped_object_ids: List[str]
-    ratings: List[RatingItem]
-
-
 __all__ = [
     "SearchProfileRequest",
     "ListingResponse",
     "OnboardingImage",
     "HardFactsForm",
-    "RatingItem",
-    "FeedbackRequest",
 ]
