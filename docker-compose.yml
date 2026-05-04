@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: dspro-backend
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - RECOMMENDER_STRATEGY=gemini
       - GEMINI_API_KEY=${GEMINI_API_KEY}
@@ -24,8 +24,8 @@ services:
       args:
         - BACKEND_URL=http://backend:8000
     container_name: dspro-frontend
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     environment:
       - NODE_ENV=production
     depends_on:
