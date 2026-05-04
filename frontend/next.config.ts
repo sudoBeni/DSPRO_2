@@ -3,10 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactCompiler: true,
   async rewrites() {
+    const backendUrl = process.env.BACKEND_URL ?? "http://localhost:8000";
     return [
       {
         source: "/data/images/:path*",
-        destination: "http://localhost:8000/data/images/:path*",
+        destination: `${backendUrl}/data/images/:path*`,
       },
     ];
   },
