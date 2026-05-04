@@ -25,7 +25,7 @@ class FuzzyClusterRecommender(BaseRecommender):
                 break
         self._n_clusters = n_clusters
 
-        memberships = torch.zeros(len(rows), n_clusters)
+        memberships = torch.zeros(len(rows), n_clusters, device=self._embeddings.device)
         for i, row in enumerate(rows):
             cm = row.get("cluster_memberships") or {}
             for c_str, val in cm.items():
@@ -39,7 +39,9 @@ class FuzzyClusterRecommender(BaseRecommender):
         include_liked: bool = True,
     ) -> list[RecommendationResult]:
         dim = self._embeddings.shape[1]
-        cluster_vectors = torch.zeros(self._n_clusters, dim)  # [n_clusters, D]
+        cluster_vectors = torch.zeros(
+            self._n_clusters, dim, device=self._embeddings.device
+        )  # [n_clusters, D]
         has_signal = False
 
         for item in rated_items:

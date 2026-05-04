@@ -43,11 +43,12 @@ class RecommendationService:
 
         import random
 
-        obj_dirs = [d for d in self._images_path.iterdir() if d.is_dir()]
+        obj_dirs = sorted(d for d in self._images_path.iterdir() if d.is_dir())
         if not obj_dirs:
             return []
 
-        selected = random.sample(obj_dirs, min(n, len(obj_dirs)))
+        rng = random.Random(42)
+        selected = rng.sample(obj_dirs, min(n, len(obj_dirs)))
         return [(d.name, sorted(d.glob("*.jpg"))) for d in selected]
 
     def _load_listings(self) -> List[Dict[str, Any]]:
