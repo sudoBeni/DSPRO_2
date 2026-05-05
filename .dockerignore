@@ -16,6 +16,9 @@ __pycache__
 dist
 build
 
+.uv
+.cache
+
 # IDE
 .vscode
 .idea

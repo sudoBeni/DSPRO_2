@@ -10,6 +10,8 @@ services:
       - RECOMMENDER_STRATEGY=gemini
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - PYTHONUNBUFFERED=1
+      - UV_NO_CACHE=1
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
     volumes:
       - ./data:/app/data
       - ./embedding:/app/embedding
