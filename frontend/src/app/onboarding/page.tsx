@@ -71,7 +71,7 @@ export default function OnboardingPage() {
     setError(null)
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
       const res = await fetch(`${apiUrl}/api/recommendations/search`, {
         method: "POST",
         headers: {
@@ -131,7 +131,7 @@ export default function OnboardingPage() {
         setIsLoading(true)
         setError(null)
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
 
         let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
         if (!session) {
