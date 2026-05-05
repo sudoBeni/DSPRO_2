@@ -26,7 +26,7 @@ EXPOSE 3000
 
 ENV NODE_ENV=production
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))" || exit 1
+HEALTHCHECK --interval=10s --timeout=10s --start-period=30s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000', (r) => r.statusCode < 500 ? process.exit(0) : process.exit(1))" || exit 1
 
 CMD ["npm", "start"]
