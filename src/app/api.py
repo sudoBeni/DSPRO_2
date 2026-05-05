@@ -38,6 +38,11 @@ def _next_strategy() -> str:
     return _strategy_deck.pop()
 
 
+@router.get("/health")
+def health() -> dict:
+    return {"status": "ok"}
+
+
 @router.get("/session")
 def create_session() -> dict:
     strategy = _next_strategy()
