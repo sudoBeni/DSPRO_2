@@ -52,3 +52,5 @@ frontend/.vercel
 # typescript
 frontend/*.tsbuildinfo
 next-env.d.ts
+
+data/feedback.jsonl
