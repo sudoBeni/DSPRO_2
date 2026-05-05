@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Magnifying glass circle -->
+  <circle cx="13" cy="13" r="10" fill="#EEF2FF" stroke="#4F46E5" stroke-width="2.5"/>
+  <!-- House body (inside glass) -->
+  <rect x="9" y="13" width="8" height="6" rx="0.5" fill="#F97316"/>
+  <!-- Roof -->
+  <polygon points="7.5,13.5 13,7.5 18.5,13.5" fill="#C2410C"/>
+  <!-- Door -->
+  <rect x="11.5" y="15.5" width="3" height="3.5" rx="0.5" fill="#FED7AA"/>
+  <!-- Magnifying glass handle -->
+  <line x1="21" y1="21" x2="28" y2="28" stroke="#4F46E5" stroke-width="3" stroke-linecap="round"/>
+</svg>
