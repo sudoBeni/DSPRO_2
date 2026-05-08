@@ -51,7 +51,6 @@ export default function FeedPage() {
 
     const payload = {
       strategy: session.strategy ?? "gemini",
-      seed: session.seed ?? 42,
       hard_facts: hardFacts,
       liked_object_ids: likedObjectIds,
       disliked_object_ids: dislikedObjectIds,

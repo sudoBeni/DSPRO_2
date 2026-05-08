@@ -39,9 +39,7 @@ class RecommendationService:
         ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
         return [self._to_listing_response(item) for item in ranked]
 
-    def get_onboarding_objects(
-        self, n: int = 10, seed: int = 42
-    ) -> list[tuple[str, list[Path]]]:
+    def get_onboarding_objects(self, n: int = 10) -> list[tuple[str, list[Path]]]:
         if not self._images_path.exists():
             return []
 

@@ -24,18 +24,27 @@ router = APIRouter(prefix="/api", tags=["propertyfinder"])
 
 recommendation_service = RecommendationService()
 
-STRATEGIES = ["gemini", "weighted_vector", "k_nearest", "fuzzy_cluster"]
-SEEDS = [42, 123, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+STRATEGIES = [
+    "gemini",
+    "weighted_vector",
+    "k_nearest",
+    "fuzzy_cluster",
+    "random_baseline",
+]
 
-_strategy_deck: list[str] = []
+
+class _StrategyDeck:
+    def __init__(self) -> None:
+        self._deck: list[str] = []
+
+    def next(self) -> str:
+        """Return strategies in shuffled blocks so each appears equally often."""
+        if not self._deck:
+            self._deck = random.sample(STRATEGIES, len(STRATEGIES))
+        return self._deck.pop()
 
 
-def _next_strategy() -> str:
-    """Return strategies in shuffled blocks of 4 so each appears equally often."""
-    global _strategy_deck
-    if not _strategy_deck:
-        _strategy_deck = random.sample(STRATEGIES, len(STRATEGIES))
-    return _strategy_deck.pop()
+_deck = _StrategyDeck()
 
 
 @router.get("/health")
@@ -45,17 +54,14 @@ def health() -> dict:
 
 @router.get("/session")
 def create_session() -> dict:
-    strategy = _next_strategy()
-    seed = random.choice(SEEDS)
-    logger.info("New session assigned — strategy=%s seed=%d", strategy, seed)
-    return {"strategy": strategy, "seed": seed}
+    strategy = _deck.next()
+    logger.info("New session assigned — strategy=%s", strategy)
+    return {"strategy": strategy}
 
 
 @router.get("/recommendations/onboarding", response_model=List[OnboardingImage])
-def get_onboarding_recommendations(
-    strategy: str = "gemini", seed: int = 42
-) -> List[OnboardingImage]:
-    onboarding_objects = recommendation_service.get_onboarding_objects(seed=seed)
+def get_onboarding_recommendations() -> List[OnboardingImage]:
+    onboarding_objects = recommendation_service.get_onboarding_objects()
 
     return [
         OnboardingImage(
@@ -72,12 +78,13 @@ def get_onboarding_recommendations(
 
 @router.post("/recommendations/search", response_model=List[ListingResponse])
 def search_recommendations(request: SearchProfileRequest) -> List[ListingResponse]:
-    logger.info("Search request — strategy=%s seed=%d", request.strategy, request.seed)
+    logger.info("Search request — strategy=%s", request.strategy)
     return recommendation_service.search(request)
 
 
 FEEDBACK_FILE = Path("../data/feedback.jsonl")
 RECALL_LEVELS = [round(i * 0.1, 1) for i in range(11)]  # 0.0, 0.1, …, 1.0
+RELEVANCE_THRESHOLD = 3  # rating 1-4, where 4=strongly agree
 
 
 def _dcg(gains: list[float]) -> float:
@@ -96,7 +103,7 @@ def _dcg_at_k(gains: list[float]) -> list[float]:
 def _session_metrics(session: dict) -> dict | None:
     ratings = sorted(session.get("ratings", []), key=lambda x: x["position"])
     gains = [r["rating"] for r in ratings]  # graded relevance 1-3 (or 0)
-    relevance = [1 if g >= 3 else 0 for g in gains]
+    relevance = [1 if g >= RELEVANCE_THRESHOLD else 0 for g in gains]
     n = len(relevance)
     if n == 0:
         return None
@@ -150,10 +157,10 @@ def get_analytics() -> dict:
 
     sessions: list[dict] = []
     with FEEDBACK_FILE.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                m = _session_metrics(json.loads(line))
+        for raw_line in f:
+            stripped = raw_line.strip()
+            if stripped:
+                m = _session_metrics(json.loads(stripped))
                 if m:
                     sessions.append(m)
 
@@ -236,9 +243,8 @@ def submit_feedback(request: FeedbackRequest) -> dict:
         **request.model_dump(),
     }
     logger.info(
-        "Feedback received — strategy=%s seed=%d liked=%d disliked=%d skipped=%d ratings=%d",
+        "Feedback received — strategy=%s liked=%d disliked=%d skipped=%d ratings=%d",
         request.strategy,
-        request.seed,
         len(request.liked_object_ids),
         len(request.disliked_object_ids),
         len(request.skipped_object_ids),
