@@ -4,7 +4,7 @@ from .base import BaseRecommender
 from .schemas import RatedItem, RecommendationResult
 
 
-class WeightedVectorRecommender(BaseRecommender):
+class SingleVectorRecommender(BaseRecommender):
     def recommend(
         self,
         rated_items: list[RatedItem],

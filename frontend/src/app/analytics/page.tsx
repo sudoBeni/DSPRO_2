@@ -34,7 +34,7 @@ type AnalyticsData = {
 }
 
 const STRATEGY_COLORS: Record<string, string> = {
-  weighted_vector: "#3b82f6",
+  single_vector: "#3b82f6",
   gemini: "#a855f7",
   fuzzy_cluster: "#22c55e",
   k_nearest: "#f97316",
@@ -42,7 +42,7 @@ const STRATEGY_COLORS: Record<string, string> = {
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
-  weighted_vector: "Weighted Vector",
+  single_vector: "Single Vector",
   gemini: "Gemini",
   fuzzy_cluster: "Fuzzy Cluster",
   k_nearest: "K-Nearest",

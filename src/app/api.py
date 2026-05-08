@@ -27,7 +27,7 @@ recommendation_service = RecommendationService()
 
 STRATEGIES = [
     "gemini",
-    "weighted_vector",
+    "single_vector",
     "k_nearest",
     "fuzzy_cluster",
     "random_baseline",
