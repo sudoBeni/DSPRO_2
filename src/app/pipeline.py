@@ -8,6 +8,7 @@ from app.recommendation_schema import HardFactsForm, OnboardingImage
 from app.recommender import (
     FuzzyClusterRecommender,
     KNearestRecommender,
+    RandomBaselineRecommender,
     WeightedVectorRecommender,
 )
 from app.recommender.schemas import RatedItem
@@ -22,6 +23,7 @@ _STRATEGY_CLASSES: dict[str, type | None] = {
     "weighted_vector": WeightedVectorRecommender,
     "k_nearest": KNearestRecommender,
     "fuzzy_cluster": FuzzyClusterRecommender,
+    "random_baseline": RandomBaselineRecommender,
 }
 
 
@@ -40,7 +42,9 @@ class Pipeline:
 
         self._strategy = strategy
         self._listings = listings
-        self._listing_by_object_id = {str(l["object_id"]): l for l in listings}
+        self._listing_by_object_id = {
+            str(listing["object_id"]): listing for listing in listings
+        }
 
         if strategy == "gemini":
             api_key = os.getenv("GEMINI_API_KEY")

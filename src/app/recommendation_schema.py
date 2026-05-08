@@ -22,7 +22,6 @@ class SearchProfileRequest(BaseModel):
     liked_images: List[OnboardingImage] = Field(default_factory=list)
     top_k: int = Field(default=10, ge=1, le=100)
     strategy: str = Field(default="gemini")
-    seed: int = Field(default=42)
 
 
 class ListingResponse(BaseModel):
@@ -46,7 +45,6 @@ class RatingItem(BaseModel):
 
 class FeedbackRequest(BaseModel):
     strategy: str
-    seed: int
     hard_facts: HardFactsForm
     liked_object_ids: List[str]
     disliked_object_ids: List[str]
