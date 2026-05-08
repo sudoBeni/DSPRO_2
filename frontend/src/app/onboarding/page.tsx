@@ -19,6 +19,7 @@ type OnboardingImageCard = {
 type SearchProfileRequest = {
   hard_facts: HardFactsForm
   liked_images: OnboardingImageCard[]
+  disliked_images: OnboardingImageCard[]
   top_k: number
 }
 
@@ -47,11 +48,13 @@ export default function OnboardingPage() {
 
   function buildSearchPayload(nextAnswers: AnswerMap): SearchProfileRequest {
     const likedImages = cards.filter((card) => nextAnswers[card.id] === true)
+    const dislikedImages = cards.filter((card) => nextAnswers[card.id] === false)
     const hardFacts = JSON.parse(sessionStorage.getItem("hardFacts") ?? "{}")
 
     return {
       hard_facts: hardFacts,
       liked_images: likedImages,
+      disliked_images: dislikedImages,
       top_k: 10,
     }
   }

@@ -82,10 +82,15 @@ export default function FeedPage() {
   const allRated = ratedCount === recommendations.length && recommendations.length > 0
 
   if (submitted) {
+    const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
+    const strategy: string = session.strategy ?? "unknown"
     return (
       <div className="max-w-xl mx-auto p-6 text-center space-y-4 pt-20">
         <h1 className="text-2xl font-bold">Thank you!</h1>
         <p className="text-muted-foreground">Your feedback has been recorded.</p>
+        <p className="text-sm text-muted-foreground">
+          Recommender used: <span className="font-mono font-medium text-foreground">{strategy}</span>
+        </p>
       </div>
     )
   }
