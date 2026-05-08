@@ -4,23 +4,25 @@ from pydantic import BaseModel, Field
 
 
 class OnboardingImage(BaseModel):
-    id: str = Field(..., description="Unique identifier for the onboarding image.")
+    id: str = Field(..., description="Object ID of the apartment.")
     label: str = Field(
         ..., description="A tag representing the user's preferred style."
     )
-    base64: str = Field(..., description="Base64-encoded image data.")
+    images: List[str] = Field(..., description="Base64-encoded images for this object.")
 
 
 class HardFactsForm(BaseModel):
     location: str = Field(...)
     min_rooms: float | None = None
     max_rent_chf: int | None = None
-    
+
 
 class SearchProfileRequest(BaseModel):
     hard_facts: HardFactsForm = Field(...)
     liked_images: List[OnboardingImage] = Field(default_factory=list)
     top_k: int = Field(default=10, ge=1, le=100)
+    strategy: str = Field(default="gemini")
+    seed: int = Field(default=42)
 
 
 class ListingResponse(BaseModel):
@@ -36,9 +38,27 @@ class ListingResponse(BaseModel):
     match_score: float = Field(...)
 
 
+class RatingItem(BaseModel):
+    position: int
+    object_id: str
+    rating: int  # 1=strongly disagree, 2=somewhat disagree, 3=somewhat agree, 4=strongly agree
+
+
+class FeedbackRequest(BaseModel):
+    strategy: str
+    seed: int
+    hard_facts: HardFactsForm
+    liked_object_ids: List[str]
+    disliked_object_ids: List[str]
+    skipped_object_ids: List[str]
+    ratings: List[RatingItem]
+
+
 __all__ = [
     "SearchProfileRequest",
     "ListingResponse",
     "OnboardingImage",
-    "HardFactsForm"
+    "HardFactsForm",
+    "RatingItem",
+    "FeedbackRequest",
 ]

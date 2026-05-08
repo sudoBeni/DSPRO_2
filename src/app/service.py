@@ -3,47 +3,56 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any, Dict, List
+
 import torch
-
-
-from app.recommendation_schema import ListingResponse, SearchProfileRequest
 from app.pipeline import Pipeline
+from app.recommendation_schema import ListingResponse, SearchProfileRequest
 
 
 class RecommendationService:
     def __init__(
         self,
-        hard_data_path: str = "../data/cleaned_apartements_processed.jsonl",
+        hard_data_path: str = "../data/cleaned_apartements_pt_aligned.jsonl",
         images_path: str = "../data/selected_images/",
+        all_images_path: str = "../data/images/",
+        strategy: str | None = None,
     ) -> None:
         self._data_path = Path(hard_data_path)
         self._images_path = Path(images_path)
+        self._all_images_path = Path(all_images_path)
         self._embedding_store = self._load_embedding_store()
         self._listings = self._load_listings()
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
 
-    def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
-        pipeline = Pipeline(self._embedding_store, self._listings)
-        ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
+        self._pipelines: dict[str, Pipeline] = {}
 
+    def _get_pipeline(self, strategy: str) -> Pipeline:
+        if strategy not in self._pipelines:
+            self._pipelines[strategy] = Pipeline(
+                self._embedding_store, self._listings, strategy=strategy
+            )
+        return self._pipelines[strategy]
+
+    def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
+        pipeline = self._get_pipeline(request.strategy)
+        ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
         return [self._to_listing_response(item) for item in ranked]
 
-    def get_onboarding_images(self) -> List[Path]:
+    def get_onboarding_objects(
+        self, n: int = 10, seed: int = 42
+    ) -> list[tuple[str, list[Path]]]:
         if not self._images_path.exists():
-            return []
-
-        all_images = [
-            p
-            for p in self._images_path.glob("**/*.jpg")
-        ]
-
-        if not all_images:
             return []
 
         import random
 
-        return random.sample(all_images, min(10, len(all_images)))
+        obj_dirs = sorted(d for d in self._images_path.iterdir() if d.is_dir())
+        if not obj_dirs:
+            return []
 
+        rng = random.Random(seed)
+        selected = rng.sample(obj_dirs, min(n, len(obj_dirs)))
+        return [(d.name, sorted(d.glob("*.jpg"))) for d in selected]
 
     def _load_listings(self) -> List[Dict[str, Any]]:
         if not self._data_path.exists():
@@ -62,12 +71,11 @@ class RecommendationService:
             if listing.get("object_id") is not None
         }
 
-
     def _load_embedding_store(
         self,
         path: Path | None = None,
     ) -> dict[str, Any]:
-        path = path or Path("../embedding/gemini_embeddings_filtered.pt")
+        path = path or Path("../embedding/gemini_embeddings_clustered.pt")
         print(path)
         path = path.resolve()
 
@@ -75,7 +83,6 @@ class RecommendationService:
         embedding_store = torch.load(path, map_location=device)
 
         return embedding_store
-
 
     def _to_listing_response(self, item: Dict[str, Any]) -> ListingResponse:
         object_id = str(item.get("object_id", ""))
@@ -99,10 +106,11 @@ class RecommendationService:
             match_score=float(item.get("score", 0.0)),
         )
 
-
     def _get_image_names(self, object_id: str) -> List[str]:
-        matching_images = list(self._images_path.glob(f"{object_id}/*.jpg"))
-        return [path.name for path in matching_images]
+        matching_images = list(
+            self._all_images_path.glob(f"apartment_{object_id}_*.jpg")
+        )
+        return sorted(path.name for path in matching_images)
 
 
 __all__ = ["RecommendationService"]

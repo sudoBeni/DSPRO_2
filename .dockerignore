@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.ruff_cache
+*.egg
+dist
+build
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter
+*.ipynb
+.ipynb_checkpoints
+
+# Exploration and preprocessing (not needed in production)
+exploration/
+preprocess_pipeline/
+populate_selected_images.py
+main.py
+
+# Frontend (separate container)
+frontend/node_modules
+frontend/.next
+
+# Development files
+DEV_NOTES.md
+*.log
+.env
+
+# Data (mounted at runtime, not baked into image)
+data/
+embedding/

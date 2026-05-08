@@ -13,7 +13,7 @@ type AnswerMap = Record<string, boolean>
 type OnboardingImageCard = {
   id: string
   label: string
-  base64: string
+  images: string[]
 }
 
 type SearchProfileRequest = {
@@ -32,6 +32,11 @@ export default function OnboardingPage() {
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<AnswerMap>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [imageIndex, setImageIndex] = useState(0)
+
+  useEffect(() => {
+    setImageIndex(0)
+  }, [index])
 
   const current = cards[index]
   const total = cards.length
@@ -52,7 +57,12 @@ export default function OnboardingPage() {
   }
 
   async function submitSearch(nextAnswers: AnswerMap) {
-    const payload = buildSearchPayload(nextAnswers)
+    const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
+    const payload = {
+      ...buildSearchPayload(nextAnswers),
+      strategy: session.strategy ?? "gemini",
+      seed: session.seed ?? 42,
+    }
 
     sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
     sessionStorage.setItem("searchRequest", JSON.stringify(payload))
@@ -61,7 +71,8 @@ export default function OnboardingPage() {
     setError(null)
 
     try {
-      const res = await fetch("http://localhost:8000/api/recommendations/search", {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const res = await fetch(`${apiUrl}/api/recommendations/search`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -120,7 +131,18 @@ export default function OnboardingPage() {
         setIsLoading(true)
         setError(null)
 
-        const res = await fetch("http://localhost:8000/api/recommendations/onboarding")
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+
+        let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
+        if (!session) {
+          const sessionRes = await fetch(`${apiUrl}/api/session`)
+          session = await sessionRes.json()
+          sessionStorage.setItem("session", JSON.stringify(session))
+        }
+
+        const res = await fetch(
+          `${apiUrl}/api/recommendations/onboarding?strategy=${session.strategy}&seed=${session.seed}`
+        )
 
         if (!res.ok) {
           throw new Error("Failed to load onboarding cards")
@@ -128,6 +150,7 @@ export default function OnboardingPage() {
 
         const data: OnboardingImageCard[] = await res.json()
         setCards(data)
+        sessionStorage.setItem("onboardingCardIds", JSON.stringify(data.map((c) => c.id)))
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong")
       } finally {
@@ -192,52 +215,76 @@ export default function OnboardingPage() {
         </div>
 
         <div className="relative flex flex-1 items-center justify-center">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={current.id}
-              className="relative h-[70vh] w-full overflow-hidden rounded-3xl"
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.18}
-              onDragEnd={(_, info) => {
-                if (isSubmitting) return
+          <div className="relative h-[70vh] w-full">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={current.id}
+                className="absolute inset-0 overflow-hidden rounded-3xl"
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.18}
+                onDragEnd={(_, info) => {
+                  if (isSubmitting) return
 
-                if (info.offset.x > SWIPE_THRESHOLD) {
-                  handleAnswer(true)
-                } else if (info.offset.x < -SWIPE_THRESHOLD) {
-                  handleAnswer(false)
-                }
-              }}
-              initial={{ opacity: 0, scale: 0.96, y: 18 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -10 }}
-              transition={{ duration: 0.22 }}
-              whileDrag={{ rotate: 8, scale: 1.02 }}
-            >
-              <Image
-                src={current.base64}
-                alt={current.label}
-                fill
-                priority
-                className="object-cover"
-              />
+                  if (info.offset.x > SWIPE_THRESHOLD) {
+                    handleAnswer(true)
+                  } else if (info.offset.x < -SWIPE_THRESHOLD) {
+                    handleAnswer(false)
+                  }
+                }}
+                initial={{ opacity: 0, scale: 0.96, y: 18 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                transition={{ duration: 0.22 }}
+                whileDrag={{ rotate: 8, scale: 1.02 }}
+              >
+                <Image
+                  src={current.images[imageIndex]}
+                  alt={current.label}
+                  fill
+                  priority
+                  className="object-cover"
+                />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-white/10 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-white/30 via-white/10 to-transparent" />
 
-              <div className="absolute left-4 top-4">
-                <Badge className="rounded-full border border-neutral-200 bg-white/80 text-neutral-900 backdrop-blur">
-                  Swipe right if you like it
-                </Badge>
+                <div className="absolute left-4 top-4">
+                  <Badge className="rounded-full border border-neutral-200 bg-white/80 text-neutral-900 backdrop-blur">
+                    Swipe right if you like it
+                  </Badge>
+                </div>
+
+                <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <p className="text-sm uppercase tracking-[0.2em] text-neutral-600">
+                    Style preference
+                  </p>
+                  <h2 className="mt-2 text-3xl font-semibold text-neutral-900">{current.label}</h2>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+
+            {current.images.length > 1 && (
+              <div className="pointer-events-none absolute bottom-20 left-0 right-0 z-10 flex items-center justify-center gap-3">
+                <button
+                  className="pointer-events-auto rounded-full bg-white/80 px-3 py-1 text-lg font-medium text-neutral-900 backdrop-blur disabled:opacity-30"
+                  onClick={() => setImageIndex((i) => Math.max(0, i - 1))}
+                  disabled={imageIndex === 0}
+                >
+                  ‹
+                </button>
+                <span className="rounded-full bg-white/80 px-2 py-1 text-xs text-neutral-600 backdrop-blur">
+                  {imageIndex + 1} / {current.images.length}
+                </span>
+                <button
+                  className="pointer-events-auto rounded-full bg-white/80 px-3 py-1 text-lg font-medium text-neutral-900 backdrop-blur disabled:opacity-30"
+                  onClick={() => setImageIndex((i) => Math.min(current.images.length - 1, i + 1))}
+                  disabled={imageIndex === current.images.length - 1}
+                >
+                  ›
+                </button>
               </div>
-
-              <div className="absolute bottom-0 left-0 right-0 p-5">
-                <p className="text-sm uppercase tracking-[0.2em] text-neutral-600">
-                  Style preference
-                </p>
-                <h2 className="mt-2 text-3xl font-semibold text-neutral-900">{current.label}</h2>
-              </div>
-            </motion.div>
-          </AnimatePresence>
+            )}
+          </div>
         </div>
 
         <div className="mt-5 grid grid-cols-3 gap-3">
