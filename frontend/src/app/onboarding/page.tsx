@@ -64,7 +64,6 @@ export default function OnboardingPage() {
     const payload = {
       ...buildSearchPayload(nextAnswers),
       strategy: session.strategy ?? "gemini",
-      seed: session.seed ?? 42,
     }
 
     sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
@@ -144,7 +143,7 @@ export default function OnboardingPage() {
         }
 
         const res = await fetch(
-          `${apiUrl}/api/recommendations/onboarding?strategy=${session.strategy}&seed=${session.seed}`
+          `${apiUrl}/api/recommendations/onboarding`
         )
 
         if (!res.ok) {
