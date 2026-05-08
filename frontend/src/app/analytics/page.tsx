@@ -5,6 +5,18 @@ import { Card, CardContent } from "@/components/ui/card"
 
 type PRPoint = { precision: number; recall: number }
 
+type RatingStats = {
+  mean: number
+  median: number
+  std: number
+  min: number
+  max: number
+  q1: number
+  q3: number
+  session_means: number[]
+  n_sessions: number
+}
+
 type StrategyResult = {
   name: string
   n_sessions: number
@@ -13,6 +25,7 @@ type StrategyResult = {
   avg_dcg: number | null
   avg_dcg_at_k: number[]
   pr_curve: PRPoint[]
+  rating_stats: RatingStats | null
 }
 
 type AnalyticsData = {
@@ -25,6 +38,7 @@ const STRATEGY_COLORS: Record<string, string> = {
   gemini: "#a855f7",
   fuzzy_cluster: "#22c55e",
   k_nearest: "#f97316",
+  random_baseline: "#ef4444",
 }
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -32,6 +46,7 @@ const STRATEGY_LABELS: Record<string, string> = {
   gemini: "Gemini",
   fuzzy_cluster: "Fuzzy Cluster",
   k_nearest: "K-Nearest",
+  random_baseline: "Random Baseline",
 }
 
 function MetricBars({
@@ -201,6 +216,158 @@ function DCGAtKChart({ strategies }: { strategies: StrategyResult[] }) {
   )
 }
 
+function RatingStatsTable({ strategies }: { strategies: StrategyResult[] }) {
+  const active = strategies.filter((s) => s.rating_stats !== null && s.n_sessions > 0)
+  if (active.length === 0) return null
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-xs text-muted-foreground uppercase tracking-wide">
+            <th className="text-left pb-2 pr-4 font-semibold">Recommender</th>
+            <th className="text-right pb-2 px-3 font-semibold">n sessions</th>
+            <th className="text-right pb-2 px-3 font-semibold">Mean</th>
+            <th className="text-right pb-2 px-3 font-semibold">Median</th>
+            <th className="text-right pb-2 px-3 font-semibold">Std Dev</th>
+            <th className="text-right pb-2 px-3 font-semibold">Min</th>
+            <th className="text-right pb-2 px-3 font-semibold">Q1</th>
+            <th className="text-right pb-2 px-3 font-semibold">Q3</th>
+            <th className="text-right pb-2 pl-3 font-semibold">Max</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border">
+          {active.map((s) => {
+            const rs = s.rating_stats!
+            const color = STRATEGY_COLORS[s.name] ?? "#6b7280"
+            return (
+              <tr key={s.name}>
+                <td className="py-2 pr-4">
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block size-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    {STRATEGY_LABELS[s.name] ?? s.name}
+                  </span>
+                </td>
+                <td className="py-2 px-3 text-right font-mono text-muted-foreground">{rs.n_sessions}</td>
+                <td className="py-2 px-3 text-right font-mono font-semibold">{rs.mean.toFixed(3)}</td>
+                <td className="py-2 px-3 text-right font-mono">{rs.median.toFixed(3)}</td>
+                <td className="py-2 px-3 text-right font-mono text-muted-foreground">{rs.std.toFixed(3)}</td>
+                <td className="py-2 px-3 text-right font-mono text-muted-foreground">{rs.min}</td>
+                <td className="py-2 px-3 text-right font-mono text-muted-foreground">{rs.q1.toFixed(2)}</td>
+                <td className="py-2 px-3 text-right font-mono text-muted-foreground">{rs.q3.toFixed(2)}</td>
+                <td className="py-2 pl-3 text-right font-mono text-muted-foreground">{rs.max}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function RatingBoxplot({ strategies }: { strategies: StrategyResult[] }) {
+  const active = strategies.filter((s) => s.rating_stats !== null && s.n_sessions > 0)
+  if (active.length === 0) return null
+
+  const svgW = 500
+  const rowH = 48
+  const pad = { top: 16, right: 24, bottom: 36, left: 120 }
+  const chartW = svgW - pad.left - pad.right
+  const svgH = pad.top + active.length * rowH + pad.bottom
+
+  const domainMin = 1
+  const domainMax = 4
+  const toX = (v: number) => pad.left + ((v - domainMin) / (domainMax - domainMin)) * chartW
+
+  const xTicks = [1, 1.5, 2, 2.5, 3, 3.5, 4]
+
+  return (
+    <svg viewBox={`0 0 ${svgW} ${svgH}`} className="w-full">
+      {/* grid lines and x-axis labels */}
+      {xTicks.map((t) => (
+        <g key={t}>
+          <line
+            x1={toX(t)} y1={pad.top - 4}
+            x2={toX(t)} y2={pad.top + active.length * rowH}
+            stroke="#e5e7eb"
+            strokeWidth={1}
+          />
+          <text x={toX(t)} y={pad.top + active.length * rowH + 16} textAnchor="middle" fontSize={10} fill="#9ca3af">
+            {t}
+          </text>
+        </g>
+      ))}
+      {/* threshold line at 2.5 */}
+      <line
+        x1={toX(2.5)} y1={pad.top - 4}
+        x2={toX(2.5)} y2={pad.top + active.length * rowH}
+        stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3"
+      />
+      <text x={toX(2.5)} y={pad.top - 8} textAnchor="middle" fontSize={9} fill="#94a3b8">
+        threshold
+      </text>
+
+      {/* x-axis baseline */}
+      <line
+        x1={pad.left} y1={pad.top + active.length * rowH}
+        x2={pad.left + chartW} y2={pad.top + active.length * rowH}
+        stroke="#6b7280" strokeWidth={1.5}
+      />
+      <text x={svgW / 2} y={svgH - 4} textAnchor="middle" fontSize={11} fill="#6b7280">
+        Mean rating per session (1 = strongly disagree · 4 = strongly agree)
+      </text>
+
+      {active.map((s, i) => {
+        const rs = s.rating_stats!
+        const color = STRATEGY_COLORS[s.name] ?? "#6b7280"
+        const cy = pad.top + i * rowH + rowH / 2
+        const boxH = 18
+
+        const x1 = toX(rs.min)
+        const xQ1 = toX(rs.q1)
+        const xMed = toX(rs.median)
+        const xMean = toX(rs.mean)
+        const xQ3 = toX(rs.q3)
+        const x4 = toX(rs.max)
+
+        return (
+          <g key={s.name}>
+            {/* strategy label */}
+            <text x={pad.left - 8} y={cy + 4} textAnchor="end" fontSize={11} fill="#374151">
+              {STRATEGY_LABELS[s.name] ?? s.name}
+            </text>
+
+            {/* whiskers */}
+            <line x1={x1} y1={cy} x2={xQ1} y2={cy} stroke={color} strokeWidth={1.5} />
+            <line x1={xQ3} y1={cy} x2={x4} y2={cy} stroke={color} strokeWidth={1.5} />
+            {/* whisker caps */}
+            <line x1={x1} y1={cy - boxH / 3} x2={x1} y2={cy + boxH / 3} stroke={color} strokeWidth={1.5} />
+            <line x1={x4} y1={cy - boxH / 3} x2={x4} y2={cy + boxH / 3} stroke={color} strokeWidth={1.5} />
+
+            {/* IQR box */}
+            <rect
+              x={xQ1} y={cy - boxH / 2}
+              width={xQ3 - xQ1} height={boxH}
+              fill={color} fillOpacity={0.2}
+              stroke={color} strokeWidth={1.5}
+              rx={2}
+            />
+
+            {/* median line */}
+            <line x1={xMed} y1={cy - boxH / 2} x2={xMed} y2={cy + boxH / 2} stroke={color} strokeWidth={2.5} />
+
+            {/* mean diamond */}
+            <polygon
+              points={`${xMean},${cy - 5} ${xMean + 5},${cy} ${xMean},${cy + 5} ${xMean - 5},${cy}`}
+              fill={color} fillOpacity={0.9}
+            />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <Card>
@@ -276,6 +443,20 @@ export default function AnalyticsPage() {
           />
         </CardContent>
       </Card>
+
+      <div className="space-y-2">
+        <h2 className="text-base font-semibold">Rating Distribution</h2>
+        <p className="text-xs text-muted-foreground">
+          Mean rating per session · scale 1–4 · 1 = strongly disagree · 4 = strongly agree · ◆ = mean · | = median
+        </p>
+        <Card>
+          <CardContent className="p-5 space-y-6">
+            <RatingBoxplot strategies={strategies} />
+            <div className="border-t" />
+            <RatingStatsTable strategies={strategies} />
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="space-y-2">
         <h2 className="text-base font-semibold">DCG@k — Cumulative Gain by Rank</h2>

@@ -4,6 +4,7 @@ import json
 import logging
 import math
 import random
+import statistics as _stats
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -137,6 +138,8 @@ def _session_metrics(session: dict) -> dict | None:
             for rl in RECALL_LEVELS
         ]
 
+    mean_rating = sum(gains) / n
+
     return {
         "strategy": session["strategy"],
         "p_at_k": p_at_k,
@@ -144,6 +147,8 @@ def _session_metrics(session: dict) -> dict | None:
         "dcg": dcg,
         "dcg_at_k": dcg_at_k,
         "pr_curve": pr_curve,
+        "mean_rating": mean_rating,
+        "ratings": gains,
     }
 
 
@@ -200,6 +205,25 @@ def get_analytics() -> dict:
             vals = [s["dcg_at_k"][k] for s in group if k < len(s["dcg_at_k"])]
             avg_dcg_at_k.append(round(sum(vals) / len(vals), 4))
 
+        session_means = [sum(s["ratings"]) / len(s["ratings"]) for s in group]
+        rating_stats = {
+            "mean": round(_stats.mean(session_means), 4),
+            "median": round(_stats.median(session_means), 4),
+            "std": round(_stats.stdev(session_means), 4)
+            if len(session_means) > 1
+            else 0.0,
+            "min": round(min(session_means), 4),
+            "max": round(max(session_means), 4),
+            "q1": round(_stats.quantiles(session_means, n=4)[0], 4)
+            if len(session_means) >= 4
+            else round(_stats.median(session_means), 4),
+            "q3": round(_stats.quantiles(session_means, n=4)[2], 4)
+            if len(session_means) >= 4
+            else round(_stats.median(session_means), 4),
+            "session_means": [round(m, 4) for m in session_means],
+            "n_sessions": n,
+        }
+
         strategy_results.append(
             {
                 "name": name,
@@ -209,6 +233,7 @@ def get_analytics() -> dict:
                 "avg_dcg": round(sum(s["dcg"] for s in group) / n, 4),
                 "avg_dcg_at_k": avg_dcg_at_k,
                 "pr_curve": avg_pr_curve,
+                "rating_stats": rating_stats,
             }
         )
 
