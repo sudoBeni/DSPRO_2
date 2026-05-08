@@ -9,7 +9,7 @@ from app.recommender import (
     FuzzyClusterRecommender,
     KNearestRecommender,
     RandomBaselineRecommender,
-    WeightedVectorRecommender,
+    SingleVectorRecommender,
 )
 from app.recommender.schemas import RatedItem
 from google import genai
@@ -20,7 +20,7 @@ TASK_TYPE = "SEMANTIC_SIMILARITY"
 
 _STRATEGY_CLASSES: dict[str, type | None] = {
     "gemini": None,  # no class because it creates a live gemini embedding
-    "weighted_vector": WeightedVectorRecommender,
+    "single_vector": SingleVectorRecommender,
     "k_nearest": KNearestRecommender,
     "fuzzy_cluster": FuzzyClusterRecommender,
     "random_baseline": RandomBaselineRecommender,
