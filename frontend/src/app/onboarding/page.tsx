@@ -121,19 +121,7 @@ export default function OnboardingPage() {
     void loadCards()
   }
 
-  function handleSkip() {
-    if (!current || isSubmitting) return
-
-    const isLast = index === total - 1
-    if (isLast) {
-      void submitSearch(answers)
-      return
-    }
-
-    setIndex((prev) => prev + 1)
-  }
-
-  async function loadCards() {
+async function loadCards() {
     try {
       setIsLoading(true)
       setError(null)
@@ -306,26 +294,17 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 flex justify-between gap-3">
           <Button
             variant="outline"
-            className="rounded-2xl border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100"
+            className="rounded-2xl border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 flex-1"
             onClick={() => handleAnswer(false)}
             disabled={isSubmitting}
           >
             No
           </Button>
 
-          <Button
-            variant="ghost"
-            className="rounded-2xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-          >
-            Skip
-          </Button>
-
-          <Button className="rounded-2xl" onClick={() => handleAnswer(true)} disabled={isSubmitting}>
+          <Button className="rounded-2xl flex-1" onClick={() => handleAnswer(true)} disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : "Yes"}
           </Button>
         </div>
