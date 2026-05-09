@@ -51,7 +51,9 @@ class Pipeline:
             if not api_key:
                 raise RuntimeError("Set GEMINI_API_KEY in your environment variables.")
             self._client = genai.Client(api_key=api_key)
-            self._embeddings = embedding_store["embeddings"].float()
+            self._embeddings = torch.nn.functional.normalize(
+                embedding_store["embeddings"].float(), p=2, dim=1
+            )
             self._rows = embedding_store["rows"]
             self._object_ids = [str(row["object_id"]) for row in self._rows]
         else:
@@ -94,6 +96,9 @@ class Pipeline:
                 )
 
             query_tensor = query_embedding.to(self._embeddings.device)
+            query_tensor = torch.nn.functional.normalize(
+                query_tensor.unsqueeze(0), p=2, dim=1
+            ).squeeze(0)
             sims = self._embeddings @ query_tensor
             sims[self._object_ids.index(listing_id)] = -1.0
 
