@@ -24,8 +24,38 @@ class RecommendationService:
         self._embedding_store = self._load_embedding_store()
         self._listings = self._load_listings()
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
+        self._onboarding_eligible: set[str] = self._compute_onboarding_eligible()
 
         self._pipelines: dict[str, Pipeline] = {}
+
+    def _compute_onboarding_eligible(
+        self, isolation_percentile_cutoff: float = 7.5
+    ) -> set[str]:
+        """Exclude the most isolated objects from onboarding so farthest-point
+        sampling doesn't always gravitate toward embedding-space outliers."""
+        embeddings = self._embedding_store.get("embeddings")
+        rows = self._embedding_store.get("rows", [])
+        if embeddings is None or len(rows) == 0:
+            return set()
+        import torch.nn.functional as F
+
+        emb = F.normalize(embeddings.float(), p=2, dim=1)
+        avg_sims = (emb @ emb.T).mean(dim=1)  # [N]
+        threshold = float(
+            avg_sims.kthvalue(
+                max(1, int(len(avg_sims) * isolation_percentile_cutoff / 100))
+            ).values
+        )
+        eligible = {
+            str(rows[i]["object_id"])
+            for i in range(len(rows))
+            if float(avg_sims[i]) >= threshold
+        }
+        excluded = len(rows) - len(eligible)
+        print(
+            f"Onboarding pool: {len(eligible)} eligible, {excluded} outliers excluded (bottom {isolation_percentile_cutoff}%)"
+        )
+        return eligible
 
     def _get_pipeline(self, strategy: str) -> Pipeline:
         if strategy not in self._pipelines:
@@ -43,12 +73,13 @@ class RecommendationService:
         if not self._images_path.exists():
             return []
 
-        # Only consider object dirs with at least 4 images
         MIN_IMAGES = 4
         obj_dirs = {
             d.name: d
             for d in self._images_path.iterdir()
-            if d.is_dir() and sum(1 for _ in d.glob("*.jpg")) >= MIN_IMAGES
+            if d.is_dir()
+            and sum(1 for _ in d.glob("*.jpg")) >= MIN_IMAGES
+            and (not self._onboarding_eligible or d.name in self._onboarding_eligible)
         }
         if not obj_dirs:
             return []
