@@ -26,11 +26,11 @@ router = APIRouter(prefix="/api", tags=["propertyfinder"])
 recommendation_service = RecommendationService()
 
 STRATEGIES = [
-    "gemini",
-    "single_vector",
-    "k_nearest",
-    "fuzzy_cluster",
-    "random_baseline",
+    # "gemini",
+    # "single_vector",
+    # "k_nearest",
+    "fuzzy_cluster"  # ,
+    # "random_baseline",
 ]
 
 
