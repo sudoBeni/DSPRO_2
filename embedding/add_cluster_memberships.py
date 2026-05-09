@@ -5,6 +5,7 @@ import torch
 
 INPUT_PT = Path("embedding/gemini_embeddings_filtered.pt")
 CLUSTERED_JSONL = Path("embedding/cleaned_apartements_clustered.jsonl")
+CENTROIDS_PATH = Path("embedding/cluster_centroids.pt")
 OUTPUT_PT = Path("embedding/gemini_embeddings_clustered.pt")
 
 
@@ -39,8 +40,19 @@ def main() -> None:
     if missing:
         print(f"Warning: {missing} rows had no cluster membership")
 
-    torch.save({"embeddings": store["embeddings"], "rows": rows}, OUTPUT_PT)
-    print(f"Saved {len(rows)} rows with cluster memberships -> {OUTPUT_PT}")
+    centroids_data = torch.load(CENTROIDS_PATH, map_location="cpu", weights_only=False)
+
+    torch.save(
+        {
+            "embeddings": store["embeddings"],
+            "rows": rows,
+            "cluster_centroids": centroids_data["centroids"],
+        },
+        OUTPUT_PT,
+    )
+    print(
+        f"Saved {len(rows)} rows with cluster memberships and {centroids_data['n_clusters']} centroids -> {OUTPUT_PT}"
+    )
 
 
 if __name__ == "__main__":
