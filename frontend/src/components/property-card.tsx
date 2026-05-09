@@ -54,9 +54,6 @@ export function PropertyCard({ property, rating, onRate }: Props) {
           fill
           className="object-cover"
         />
-        <Badge className="absolute top-3 left-3 bg-black/70 backdrop-blur">
-          {property.match_score}% Match
-        </Badge>
         {hasMultipleImages && (
           <>
             <Button
@@ -100,7 +97,7 @@ export function PropertyCard({ property, rating, onRate }: Props) {
 
         {/* Meta info */}
         <div className="text-sm text-muted-foreground">
-          {property.n_rooms}, {property.street}, {property.postal_code}
+          {property.n_rooms}
         </div>
 
         {/* AI explanation */}
