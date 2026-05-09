@@ -26,26 +26,27 @@ router = APIRouter(prefix="/api", tags=["propertyfinder"])
 recommendation_service = RecommendationService()
 
 STRATEGIES = [
-    # "gemini",
-    # "single_vector",
-    # "k_nearest",
-    "fuzzy_cluster"  # ,
-    # "random_baseline",
+    "gemini",
+    "single_vector",
+    "k_nearest",
+    "fuzzy_cluster",
+    "random_baseline",
 ]
 
 
-class _StrategyDeck:
-    def __init__(self) -> None:
-        self._deck: list[str] = []
-
-    def next(self) -> str:
-        """Return strategies in shuffled blocks so each appears equally often."""
-        if not self._deck:
-            self._deck = random.sample(STRATEGIES, len(STRATEGIES))
-        return self._deck.pop()
-
-
-_deck = _StrategyDeck()
+def _pick_least_used_strategy() -> str:
+    counts: dict[str, int] = {s: 0 for s in STRATEGIES}
+    if FEEDBACK_FILE.exists():
+        with FEEDBACK_FILE.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    strategy = json.loads(line).get("strategy")
+                    if strategy in counts:
+                        counts[strategy] += 1
+    min_count = min(counts.values())
+    least_used = [s for s, c in counts.items() if c == min_count]
+    return random.choice(least_used)
 
 
 @router.get("/health")
@@ -55,7 +56,7 @@ def health() -> dict:
 
 @router.get("/session")
 def create_session() -> dict:
-    strategy = _deck.next()
+    strategy = _pick_least_used_strategy()
     logger.info("New session assigned — strategy=%s", strategy)
     return {"strategy": strategy}
 
@@ -103,8 +104,14 @@ def _dcg_at_k(gains: list[float]) -> list[float]:
 
 def _session_metrics(session: dict) -> dict | None:
     ratings = sorted(session.get("ratings", []), key=lambda x: x["position"])
-    gains = [r["rating"] for r in ratings]  # graded relevance 1-3 (or 0)
+    gains = [r["rating"] for r in ratings]
     relevance = [1 if g >= RELEVANCE_THRESHOLD else 0 for g in gains]
+    # 2^r − 1 gain: strongly agree (4) → 3, agree (3) → 1, below threshold → 0
+    # exponential weighting because a strongly agree is qualitatively more valuable than agree
+    dcg_gains = [
+        2 ** (g - RELEVANCE_THRESHOLD + 1) - 1 if g >= RELEVANCE_THRESHOLD else 0
+        for g in gains
+    ]
     n = len(relevance)
     if n == 0:
         return None
@@ -112,8 +119,8 @@ def _session_metrics(session: dict) -> dict | None:
     R = sum(relevance)
     p_at_k = sum(relevance) / n
 
-    dcg = _dcg(gains)
-    dcg_at_k = _dcg_at_k(gains)
+    dcg = _dcg(dcg_gains)
+    dcg_at_k = _dcg_at_k(dcg_gains)
 
     if R == 0:
         ap = 0.0
