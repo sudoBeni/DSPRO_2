@@ -146,7 +146,7 @@ class Pipeline:
         excluded_ids = self._compute_excluded_ids(hard_facts) if hard_facts else set()
 
         results = self._recommender.recommend(
-            rated_items, top_k=top_k, excluded_ids=excluded_ids
+            rated_items, top_k=top_k, include_liked=False, excluded_ids=excluded_ids
         )
         return [
             {"object_id": r.object_id, "score": r.similarity_score} for r in results
