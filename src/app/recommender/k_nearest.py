@@ -9,7 +9,7 @@ class KNearestRecommender(BaseRecommender):
         self,
         rated_items: list[RatedItem],
         top_k: int = 10,
-        include_liked: bool = True,
+        include_liked: bool = False,
         min_per_like: int = 0,
     ) -> list[RecommendationResult]:
         liked_ids = [item.object_id for item in rated_items if item.rating == 1]

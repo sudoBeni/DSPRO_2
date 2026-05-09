@@ -44,7 +44,8 @@ class FuzzyClusterRecommender(BaseRecommender):
         self,
         rated_items: list[RatedItem],
         top_k: int = 10,
-        include_liked: bool = True,
+        include_liked: bool = False,
+        excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         dim = self._embeddings.shape[1]
         device = self._embeddings.device
@@ -113,7 +114,9 @@ class FuzzyClusterRecommender(BaseRecommender):
         weighted_sims = cluster_sims * self._memberships * user_affinity.unsqueeze(0)
         scores = weighted_sims.sum(dim=1)  # [N]
 
-        excluded_indices = self._build_excluded_indices(rated_items, include_liked)
+        excluded_indices = self._build_excluded_indices(
+            rated_items, include_liked, excluded_ids
+        )
         for idx in excluded_indices:
             scores[idx] = -float("inf")
 

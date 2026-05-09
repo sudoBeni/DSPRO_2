@@ -9,7 +9,8 @@ class SingleVectorRecommender(BaseRecommender):
         self,
         rated_items: list[RatedItem],
         top_k: int = 10,
-        include_liked: bool = True,
+        include_liked: bool = False,
+        excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         liked_indices = [
             self._id_to_idx[item.object_id]
@@ -39,7 +40,9 @@ class SingleVectorRecommender(BaseRecommender):
 
         sims = self._embeddings @ query
 
-        excluded_indices = self._build_excluded_indices(rated_items, include_liked)
+        excluded_indices = self._build_excluded_indices(
+            rated_items, include_liked, excluded_ids
+        )
         for idx in excluded_indices:
             sims[idx] = -2.0
 

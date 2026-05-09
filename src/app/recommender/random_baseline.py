@@ -9,10 +9,11 @@ class RandomBaselineRecommender(BaseRecommender):
         self,
         rated_items: list[RatedItem],
         top_k: int = 10,
+        include_liked: bool = False,
         excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         excluded_indices = self._build_excluded_indices(
-            rated_items, include_liked=False, excluded_ids=excluded_ids
+            rated_items, include_liked=include_liked, excluded_ids=excluded_ids
         )
 
         candidates = [
