@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import torch
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
@@ -11,8 +12,8 @@ INPUT_JSONL = Path("preprocess_pipeline/cleaned_apartements_processed.jsonl")
 OUTPUT_JSONL = Path("embedding/cleaned_apartements_clustered.jsonl")
 CENTROIDS_PATH = Path("embedding/cluster_centroids.pt")
 
-N_CLUSTERS = 50
-PCA_COMPONENTS = 50  # GMM handles higher dims than C-means; 50 captures ~55% variance
+N_CLUSTERS = 12
+PCA_COMPONENTS = 8
 
 
 data = torch.load(EMBEDDINGS_PATH, weights_only=False)
@@ -36,6 +37,11 @@ gm = GaussianMixture(
 )
 gm.fit(emb_pca)
 probs = gm.predict_proba(emb_pca)  # [N, N_CLUSTERS] — soft memberships
+
+TEMPERATURE = 12  # higher = softer memberships; 1.0 = no change
+logits = np.log(probs + 1e-10)
+probs = np.exp(logits / TEMPERATURE)
+probs = probs / probs.sum(axis=1, keepdims=True)
 
 # Project GMM means (in PCA space) back to original embedding space for the recommender
 pca_matrix = torch.tensor(
@@ -71,6 +77,12 @@ for c in range(N_CLUSTERS):
 
 print(f"\nOverall membership std: {probs.std():.4f}")
 print(f"Max membership: {probs.max():.4f}")
+
+entropy = -np.sum(probs * np.log(probs + 1e-10), axis=1)
+max_entropy = np.log(N_CLUSTERS)  # entropy if perfectly uniform
+print(f"Avg entropy: {entropy.mean():.3f} / {max_entropy:.3f} (max if uniform)")
+print(f"Avg entropy %: {100 * entropy.mean() / max_entropy:.1f}%")
+
 
 memberships = [
     {str(c): round(float(probs[i, c]), 6) for c in range(N_CLUSTERS)}
