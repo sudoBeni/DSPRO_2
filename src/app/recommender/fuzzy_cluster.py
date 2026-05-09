@@ -63,8 +63,13 @@ class FuzzyClusterRecommender(BaseRecommender):
             idx = self._id_to_idx[item.object_id]
             memberships_item = self._memberships[idx]  # [n_clusters]
             emb = self._embeddings[idx]  # [D]
+            weight = 0.25 if item.rating < 0 else float(item.rating)
+            signal_direction = -1.0 if item.rating < 0 else 1.0
             user_signal += (
-                item.rating * memberships_item.unsqueeze(1) * emb.unsqueeze(0)
+                signal_direction
+                * weight
+                * memberships_item.unsqueeze(1)
+                * emb.unsqueeze(0)
             )
             if item.rating > 0:
                 total_likes += 1

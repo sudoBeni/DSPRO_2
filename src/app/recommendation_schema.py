@@ -20,6 +20,7 @@ class HardFactsForm(BaseModel):
 class SearchProfileRequest(BaseModel):
     hard_facts: HardFactsForm = Field(...)
     liked_images: List[OnboardingImage] = Field(default_factory=list)
+    disliked_images: List[OnboardingImage] = Field(default_factory=list)
     top_k: int = Field(default=10, ge=1, le=100)
     strategy: str = Field(default="gemini")
 

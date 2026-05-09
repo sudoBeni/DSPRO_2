@@ -64,10 +64,13 @@ class Pipeline:
         liked_images: list[OnboardingImage],
         top_k: int = 10,
         hard_facts: HardFactsForm | None = None,
+        disliked_images: list[OnboardingImage] | None = None,
     ) -> list[dict[str, Any]]:
         if self._strategy == "gemini":
             return self._run_gemini(liked_images, top_k, hard_facts)
-        return self._run_recommender(liked_images, top_k, hard_facts)
+        return self._run_recommender(
+            liked_images, top_k, hard_facts, disliked_images or []
+        )
 
     # --- Gemini path ---
 
@@ -143,10 +146,14 @@ class Pipeline:
         liked_images: list[OnboardingImage],
         top_k: int,
         hard_facts: HardFactsForm | None,
+        disliked_images: list[OnboardingImage] | None = None,
     ) -> list[dict[str, Any]]:
         rated_items = [
             RatedItem(object_id=self._parse_listing_id(img.id), rating=1)
             for img in liked_images
+        ] + [
+            RatedItem(object_id=self._parse_listing_id(img.id), rating=-1)
+            for img in (disliked_images or [])
         ]
         excluded_ids = self._compute_excluded_ids(hard_facts) if hard_facts else set()
 

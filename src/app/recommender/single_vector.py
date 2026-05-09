@@ -26,12 +26,12 @@ class SingleVectorRecommender(BaseRecommender):
         if not liked_indices and not disliked_indices:
             return []
 
-        # Build query vector: sum liked embeddings, subtract disliked embeddings
+        # Build query vector: sum liked embeddings, subtract weighted disliked embeddings
         query = torch.zeros(self._embeddings.shape[1], device=self._embeddings.device)
         for idx in liked_indices:
             query = query + self._embeddings[idx]
         for idx in disliked_indices:
-            query = query - self._embeddings[idx]
+            query = query - 0.25 * self._embeddings[idx]
 
         query_norm = query.norm()
         if query_norm == 0:

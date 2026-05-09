@@ -66,7 +66,12 @@ class RecommendationService:
 
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
         pipeline = self._get_pipeline(request.strategy)
-        ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
+        ranked = pipeline.run(
+            request.liked_images,
+            request.top_k,
+            request.hard_facts,
+            request.disliked_images,
+        )
         return [self._to_listing_response(item) for item in ranked]
 
     def get_onboarding_objects(self, n: int = 10) -> list[tuple[str, list[Path]]]:
