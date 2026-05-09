@@ -24,6 +24,7 @@ type SearchProfileRequest = {
 }
 
 const SWIPE_THRESHOLD = 120
+const TOTAL_ONBOARDING_CARDS = 10
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -40,9 +41,8 @@ export default function OnboardingPage() {
   }, [index])
 
   const current = cards[index]
-  const total = cards.length
+  const total = TOTAL_ONBOARDING_CARDS
   const progress = useMemo(() => {
-    if (total === 0) return 0
     return ((index + 1) / total) * 100
   }, [index, total])
 
@@ -67,7 +67,7 @@ export default function OnboardingPage() {
     }
 
     sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
-    sessionStorage.setItem("searchRequest", JSON.stringify(payload))
+    sessionStorage.setItem("onboardingCardIds", JSON.stringify(cards.map((c) => c.id)))
 
     setIsSubmitting(true)
     setError(null)
@@ -76,15 +76,11 @@ export default function OnboardingPage() {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
       const res = await fetch(`${apiUrl}/api/recommendations/search`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) {
-        throw new Error("Failed to create recommendations")
-      }
+      if (!res.ok) throw new Error("Failed to create recommendations")
 
       const recommendations = await res.json()
       sessionStorage.setItem("recommendations", JSON.stringify(recommendations))
@@ -99,11 +95,7 @@ export default function OnboardingPage() {
   function handleAnswer(value: boolean) {
     if (!current || isSubmitting) return
 
-    const nextAnswers = {
-      ...answers,
-      [current.id]: value,
-    }
-
+    const nextAnswers = { ...answers, [current.id]: value }
     setAnswers(nextAnswers)
 
     const isLast = index === total - 1
@@ -128,7 +120,7 @@ export default function OnboardingPage() {
   }
 
   useEffect(() => {
-    async function loadOnboardingCards() {
+    async function loadCards() {
       try {
         setIsLoading(true)
         setError(null)
@@ -142,17 +134,11 @@ export default function OnboardingPage() {
           sessionStorage.setItem("session", JSON.stringify(session))
         }
 
-        const res = await fetch(
-          `${apiUrl}/api/recommendations/onboarding`
-        )
+        const res = await fetch(`${apiUrl}/api/recommendations/onboarding`)
+        if (!res.ok) throw new Error("Failed to load onboarding cards")
 
-        if (!res.ok) {
-          throw new Error("Failed to load onboarding cards")
-        }
-
-        const data: OnboardingImageCard[] = await res.json()
-        setCards(data)
-        sessionStorage.setItem("onboardingCardIds", JSON.stringify(data.map((c) => c.id)))
+        const fetchedCards: OnboardingImageCard[] = await res.json()
+        setCards(fetchedCards)
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong")
       } finally {
@@ -160,7 +146,7 @@ export default function OnboardingPage() {
       }
     }
 
-    loadOnboardingCards()
+    loadCards()
   }, [])
 
   if (isLoading) {
