@@ -35,6 +35,7 @@ export default function OnboardingPage() {
   const [answers, setAnswers] = useState<AnswerMap>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imageIndex, setImageIndex] = useState(0)
+  const [allDisliked, setAllDisliked] = useState(false)
 
   useEffect(() => {
     setImageIndex(0)
@@ -60,6 +61,12 @@ export default function OnboardingPage() {
   }
 
   async function submitSearch(nextAnswers: AnswerMap) {
+    const hasLike = Object.values(nextAnswers).some((v) => v === true)
+    if (!hasLike) {
+      setAllDisliked(true)
+      return
+    }
+
     const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
     const payload = {
       ...buildSearchPayload(nextAnswers),
@@ -107,6 +114,13 @@ export default function OnboardingPage() {
     setIndex((prev) => prev + 1)
   }
 
+  function handleRestart() {
+    setAllDisliked(false)
+    setAnswers({})
+    setIndex(0)
+    void loadCards()
+  }
+
   function handleSkip() {
     if (!current || isSubmitting) return
 
@@ -119,34 +133,35 @@ export default function OnboardingPage() {
     setIndex((prev) => prev + 1)
   }
 
-  useEffect(() => {
-    async function loadCards() {
-      try {
-        setIsLoading(true)
-        setError(null)
+  async function loadCards() {
+    try {
+      setIsLoading(true)
+      setError(null)
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
 
-        let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
-        if (!session) {
-          const sessionRes = await fetch(`${apiUrl}/api/session`)
-          session = await sessionRes.json()
-          sessionStorage.setItem("session", JSON.stringify(session))
-        }
-
-        const res = await fetch(`${apiUrl}/api/recommendations/onboarding`)
-        if (!res.ok) throw new Error("Failed to load onboarding cards")
-
-        const fetchedCards: OnboardingImageCard[] = await res.json()
-        setCards(fetchedCards)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong")
-      } finally {
-        setIsLoading(false)
+      let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
+      if (!session) {
+        const sessionRes = await fetch(`${apiUrl}/api/session`)
+        session = await sessionRes.json()
+        sessionStorage.setItem("session", JSON.stringify(session))
       }
-    }
 
-    loadCards()
+      const res = await fetch(`${apiUrl}/api/recommendations/onboarding`)
+      if (!res.ok) throw new Error("Failed to load onboarding cards")
+
+      const fetchedCards: OnboardingImageCard[] = await res.json()
+      setCards(fetchedCards)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadCards()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   if (isLoading) {
@@ -167,6 +182,22 @@ export default function OnboardingPage() {
         <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
           <p className="text-sm text-red-600">{error}</p>
           <Button onClick={() => window.location.reload()}>Try again</Button>
+        </div>
+      </main>
+    )
+  }
+
+  if (allDisliked) {
+    return (
+      <main className="min-h-screen bg-white text-neutral-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-4 py-6 text-center">
+          <h1 className="text-2xl font-semibold">Nothing caught your eye?</h1>
+          <p className="text-sm text-neutral-500">
+            We need at least one apartment you like to generate recommendations. Give it another try!
+          </p>
+          <Button className="rounded-2xl px-8" onClick={handleRestart}>
+            Start over
+          </Button>
         </div>
       </main>
     )
