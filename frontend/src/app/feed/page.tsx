@@ -109,18 +109,18 @@ export default function FeedPage() {
       <Dialog open={showIntro} onOpenChange={setShowIntro}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rate your recommendations</DialogTitle>
+            <DialogTitle>Deine Empfehlungen bewerten</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm text-neutral-600">
-                <p>Below are apartments selected just for you. Please rate each one to help us evaluate how well the recommender performed.</p>
-                <p>The filters you set earlier define a minimum number of rooms and a maximum price. Please do not rate based on those. <strong>Focus on whether the style and feel of the apartment appeals to you.</strong></p>
-                <p>Due to the small dataset, please also ignore the location when rating.</p>
-                <p className="text-neutral-400 text-xs">Images are sourced from ImmoScout24 and shown exactly as they appear in the original listing.</p>
+                <p>Bewerte jedes Inserat auf einer Skala von <strong>1 (stimme gar nicht zu) bis 4 (stimme voll zu)</strong>, wie gut es deinem Geschmack entspricht.</p>
+                <p>Deine Filter setzen eine Mindestanzahl an Zimmern und einen Höchstpreis. Bitte beachte diese nicht bei der Bewertung, sondern beurteile nur Stil und Ausstattung.</p>
+                <p>Aufgrund des kleinen Datensatzes bitte auch die Lage ignorieren.</p>
+                <p className="text-neutral-400 text-xs">Die Bilder stammen von ImmoScout24 und werden so angezeigt wie im Originalinserat.</p>
               </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button className="w-full" onClick={() => setShowIntro(false)}>Got it, start rating</Button>
+            <Button className="w-full" onClick={() => setShowIntro(false)}>Verstanden, jetzt bewerten</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

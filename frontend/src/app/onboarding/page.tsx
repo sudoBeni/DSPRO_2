@@ -238,16 +238,16 @@ export default function OnboardingPage() {
       <Dialog open={showIntro} onOpenChange={setShowIntro}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>How this works</DialogTitle>
+            <DialogTitle>So funktioniert es</DialogTitle>
             <DialogDescription asChild>
               <div className="space-y-2 text-sm text-neutral-600">
-                <p>You'll be shown a series of apartment listings. Swipe <strong>right</strong> to like or <strong>left</strong> to dislike each one.</p>
-                <p>These are randomly selected and do not take your filters into account. They are purely here to understand your visual taste.</p>
+                <p>Dir werden verschiedene Inserate gezeigt. Wische nach <strong>rechts</strong> um ein Objekt zu liken, nach <strong>links</strong> um es abzulehnen.</p>
+                <p>Die Auswahl ist zufällig und berücksichtigt deine Filter nicht. Es geht nur darum, deinen visuellen Geschmack zu verstehen.</p>
               </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button className="w-full" onClick={() => setShowIntro(false)}>Got it, let's go</Button>
+            <Button className="w-full" onClick={() => setShowIntro(false)}>Verstanden, los geht's</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
