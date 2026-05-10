@@ -38,6 +38,7 @@ export default function OnboardingPage() {
   const [imageIndex, setImageIndex] = useState(0)
   const [allDisliked, setAllDisliked] = useState(false)
   const [msgIndex, setMsgIndex] = useState(0)
+  const [loadKey, setLoadKey] = useState(0)
 
   useEffect(() => {
     setImageIndex(0)
@@ -129,39 +130,49 @@ export default function OnboardingPage() {
     setAllDisliked(false)
     setAnswers({})
     setIndex(0)
-    void loadCards()
-  }
-
-async function loadCards() {
-    try {
-      setIsLoading(true)
-      setError(null)
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
-
-      let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
-      if (!session) {
-        const sessionRes = await fetch(`${apiUrl}/api/session`)
-        session = await sessionRes.json()
-        sessionStorage.setItem("session", JSON.stringify(session))
-      }
-
-      const res = await fetch(`${apiUrl}/api/recommendations/onboarding`)
-      if (!res.ok) throw new Error("Failed to load onboarding cards")
-
-      const fetchedCards: OnboardingImageCard[] = await res.json()
-      setCards(fetchedCards)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setIsLoading(false)
-    }
+    sessionStorage.removeItem("onboardingCards")
+    setLoadKey((k) => k + 1)
   }
 
   useEffect(() => {
-    void loadCards()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    let cancelled = false
+
+    async function load() {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
+
+        let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
+        if (!session) {
+          const sessionRes = await fetch(`${apiUrl}/api/session`)
+          session = await sessionRes.json()
+          if (!cancelled) sessionStorage.setItem("session", JSON.stringify(session))
+        }
+
+        const cachedCards = sessionStorage.getItem("onboardingCards")
+        if (cachedCards) {
+          if (!cancelled) setCards(JSON.parse(cachedCards) as OnboardingImageCard[])
+        } else {
+          const res = await fetch(`${apiUrl}/api/recommendations/onboarding`)
+          if (!res.ok) throw new Error("Failed to load onboarding cards")
+          const fetchedCards: OnboardingImageCard[] = await res.json()
+          if (!cancelled) {
+            sessionStorage.setItem("onboardingCards", JSON.stringify(fetchedCards))
+            setCards(fetchedCards)
+          }
+        }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Something went wrong")
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    }
+
+    void load()
+    return () => { cancelled = true }
+  }, [loadKey])
 
   if (isLoading || isSubmitting || (!current && !error && !allDisliked)) {
     return (
