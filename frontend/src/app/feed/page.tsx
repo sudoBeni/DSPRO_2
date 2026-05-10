@@ -1,18 +1,27 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Property } from "@/types/property"
 import { PropertyCard } from "@/components/property-card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 
 type Ratings = Record<string, number>
 
 export default function FeedPage() {
+  const router = useRouter()
   const [recommendations, setRecommendations] = useState<Property[]>([])
   const [ratings, setRatings] = useState<Ratings>({})
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showIntro, setShowIntro] = useState(true)
+
+  function handleDoAgain() {
+    sessionStorage.clear()
+    router.push("/hardfacts")
+  }
 
   useEffect(() => {
     const stored = sessionStorage.getItem("recommendations")
@@ -90,12 +99,32 @@ export default function FeedPage() {
         <p className="text-sm text-muted-foreground">
           Recommender used: <span className="font-mono font-medium text-foreground">{strategy}</span>
         </p>
+        <Button onClick={handleDoAgain}>Do again</Button>
       </div>
     )
   }
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6">
+      <Dialog open={showIntro} onOpenChange={setShowIntro}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rate your recommendations</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-neutral-600">
+                <p>Below are apartments selected just for you. Please rate each one to help us evaluate how well the recommender performed.</p>
+                <p>The filters you set earlier define a minimum number of rooms and a maximum price. Please do not rate based on those. <strong>Focus on whether the style and feel of the apartment appeals to you.</strong></p>
+                <p>Due to the small dataset, please also ignore the location when rating.</p>
+                <p className="text-neutral-400 text-xs">Images are sourced from ImmoScout24 and shown exactly as they appear in the original listing.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setShowIntro(false)}>Got it, start rating</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Recommended for you</h1>
