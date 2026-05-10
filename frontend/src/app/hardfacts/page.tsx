@@ -22,7 +22,7 @@ export type HardFactsForm = {
   max_rent_chf: string
 }
 
-const ROOM_OPTIONS = ["1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5+"]
+const ROOM_OPTIONS = ["1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5+"]
 const RENT_OPTIONS = ["1500", "2000", "2500", "3000", "3500", "4000", "5000+"]
 
 const triggerClass =
@@ -53,6 +53,9 @@ export default function HardFactsPage() {
   const isValid = useMemo(() => {
     return form.location.trim() !== ""
   }, [form])
+
+  const isMaxRooms = form.min_rooms === "4.5+"
+  const isMinRent = form.max_rent_chf === "1500"
 
   function handleContinue() {
     setError(null)
@@ -182,26 +185,31 @@ export default function HardFactsPage() {
                         </CommandItem>
                       )}
 
-                      {ROOM_OPTIONS.map((option) => (
-                        <CommandItem
-                          key={option}
-                          value={option}
-                          className="cursor-pointer data-[selected=true]:bg-neutral-200"
-                          onSelect={(value) => {
-                            updateField("min_rooms", value)
-                            setOpenRooms(false)
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              form.min_rooms === option
-                                ? "opacity-100"
-                                : "opacity-0"
-                            }`}
-                          />
-                          {option}
-                        </CommandItem>
-                      ))}
+                      {ROOM_OPTIONS.map((option) => {
+                        const disabled = isMinRent && option === "4.5+"
+                        return (
+                          <CommandItem
+                            key={option}
+                            value={option}
+                            disabled={disabled}
+                            className={`cursor-pointer data-[selected=true]:bg-neutral-200 ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}
+                            onSelect={(value) => {
+                              if (disabled) return
+                              updateField("min_rooms", value)
+                              setOpenRooms(false)
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                form.min_rooms === option
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              }`}
+                            />
+                            {option}
+                          </CommandItem>
+                        )
+                      })}
                     </CommandGroup>
                   </CommandList>
                 </Command>
@@ -252,26 +260,31 @@ export default function HardFactsPage() {
                         </CommandItem>
                       )}
 
-                      {RENT_OPTIONS.map((option) => (
-                        <CommandItem
-                          key={option}
-                          value={option}
-                          className="cursor-pointer data-[selected=true]:bg-neutral-200"
-                          onSelect={(value) => {
-                            updateField("max_rent_chf", value)
-                            setOpenRent(false)
-                          }}
-                        >
-                          <Check
-                            className={`mr-2 h-4 w-4 ${
-                              form.max_rent_chf === option
-                                ? "opacity-100"
-                                : "opacity-0"
-                            }`}
-                          />
-                          CHF {option}
-                        </CommandItem>
-                      ))}
+                      {RENT_OPTIONS.map((option) => {
+                        const disabled = isMaxRooms && option === "1500"
+                        return (
+                          <CommandItem
+                            key={option}
+                            value={option}
+                            disabled={disabled}
+                            className={`cursor-pointer data-[selected=true]:bg-neutral-200 ${disabled ? "opacity-30 cursor-not-allowed" : ""}`}
+                            onSelect={(value) => {
+                              if (disabled) return
+                              updateField("max_rent_chf", value)
+                              setOpenRent(false)
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-4 w-4 ${
+                                form.max_rent_chf === option
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              }`}
+                            />
+                            CHF {option}
+                          </CommandItem>
+                        )
+                      })}
                     </CommandGroup>
                   </CommandList>
                 </Command>
