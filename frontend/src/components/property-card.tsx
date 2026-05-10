@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,13 @@ export function PropertyCard({ property, rating, onRate }: Props) {
 
   const hasMultipleImages = imageNames.length > 1
   const currentImage = imageNames[activeImageIndex]
+
+  useEffect(() => {
+    imageNames.forEach((name) => {
+      const img = new window.Image()
+      img.src = `/data/images/${name}`
+    })
+  }, [imageNames])
 
   function showPreviousImage() {
     setActiveImageIndex((prev) => {

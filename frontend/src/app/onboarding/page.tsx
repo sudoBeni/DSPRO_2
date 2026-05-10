@@ -163,7 +163,7 @@ async function loadCards() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (isLoading || isSubmitting) {
+  if (isLoading || isSubmitting || (!current && !error && !allDisliked)) {
     return (
       <main className="min-h-screen bg-white text-neutral-900">
         <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-4 py-6">
