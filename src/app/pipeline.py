@@ -16,6 +16,7 @@ from google import genai
 from google.genai import types
 
 MODEL = "gemini-embedding-2-preview"
+GENERATIVE_MODEL = "gemini-2.5-flash"
 TASK_TYPE = "SEMANTIC_SIMILARITY"
 
 _STRATEGY_CLASSES: dict[str, type | None] = {
@@ -80,17 +81,25 @@ class Pipeline:
         top_k: int,
         hard_facts: HardFactsForm | None,
     ) -> list[dict[str, Any]]:
-        # Keep only the best score per object_id across all liked images
-        best_scores: dict[str, float] = {}
-
+        liked_listings = []
         for image in liked_images:
             listing_id = self._parse_listing_id(image.id)
             listing = self._listing_by_object_id.get(listing_id)
             if not listing:
                 raise ValueError(f"Listing with object_id {listing_id} not found.")
+            liked_listings.append(listing)
 
-            text_prompt = self._create_text_prompt(listing)
-            query_embedding = self._create_embedding(image.images, text_prompt)
+        dream_description = self._synthesize_dream_description(
+            liked_listings, hard_facts
+        )
+        print(f"[gemini] dream description: {dream_description}", flush=True)
+
+        # Keep only the best score per object_id across all liked images
+        best_scores: dict[str, float] = {}
+
+        for image, listing in zip(liked_images, liked_listings, strict=False):
+            listing_id = self._parse_listing_id(image.id)
+            query_embedding = self._create_embedding(image.images, dream_description)
 
             if self._embeddings.shape[1] != query_embedding.shape[0]:
                 raise ValueError(
@@ -197,6 +206,47 @@ class Pipeline:
             raise ValueError(f"Invalid image id format: {image_id}")
         return match.group(1)
 
+    def _synthesize_dream_description(
+        self, listings: list[dict], hard_facts: HardFactsForm | None
+    ) -> str:
+        listing_summaries = "\n\n".join(
+            f"Inserat {i + 1}:\n{self._create_text_prompt(listing)}"
+            for i, listing in enumerate(listings)
+        )
+
+        hard_facts_text = ""
+        if hard_facts:
+            parts = []
+            if hard_facts.location:
+                parts.append(f"Gewünschter Ort: {hard_facts.location}")
+            if hard_facts.min_rooms is not None:
+                parts.append(f"Mindestanzahl Zimmer: {hard_facts.min_rooms}")
+            if hard_facts.max_rent_chf is not None:
+                parts.append(f"Maximale Monatsmiete: CHF {hard_facts.max_rent_chf}")
+            hard_facts_text = "\n".join(parts)
+
+        prompt = (
+            "Du bist ein Immobilienexperte. Ein Nutzer hat folgende Inserate als ansprechend markiert:\n\n"
+            f"{listing_summaries}\n\n"
+        )
+        if hard_facts_text:
+            prompt += f"Zusätzlich hat der Nutzer folgende Anforderungen angegeben:\n{hard_facts_text}\n\n"
+        prompt += (
+            "Analysiere, welche visuellen und inhaltlichen Merkmale dem Nutzer wichtig sind. "
+            "Beschreibe dann die Traumwohnung des Nutzers in folgendem Format:\n"
+            "Immobilie in {Ort}: {Kurzbeschreibung}. die Immobilie hat {Zimmeranzahl} und {Wohnfläche}. "
+            "Die monatliche Miete ist {Miete}. Eigenschaften: {Beschreibung}.\n"
+            "Schätze fehlende Werte sinnvoll basierend auf den Inseraten und den Anforderungen. "
+            "Antworte nur mit dem fertigen Text in diesem Format, ohne Einleitung."
+        )
+
+        print(f"[gemini] synthesize prompt:\n{prompt}", flush=True)
+        response = self._client.models.generate_content(
+            model=GENERATIVE_MODEL,
+            contents=prompt,
+        )
+        return response.text.strip()
+
     def _create_text_prompt(self, listing: dict) -> str:
         postal_code = str(listing.get("postal_code") or "Stadt unbekannt").strip()
         city = postal_code.split(" ", 1)[1] if " " in postal_code else postal_code
@@ -220,6 +270,10 @@ class Pipeline:
         )
 
     def _create_embedding(self, images: list[str], text_prompt: str) -> torch.Tensor:
+        print(
+            f"[gemini] embedding prompt ({len(images)} image(s)):\n{text_prompt}",
+            flush=True,
+        )
         parts = [types.Part.from_text(text=text_prompt)]
         for img in images:
             parts.append(
