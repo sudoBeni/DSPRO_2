@@ -29,7 +29,7 @@ class RecommendationService:
         self._pipelines: dict[str, Pipeline] = {}
 
     def _compute_onboarding_eligible(
-        self, isolation_percentile_cutoff: float = 7.5
+        self, isolation_percentile_cutoff: float = 10
     ) -> set[str]:
         """Exclude the most isolated objects from onboarding so farthest-point
         sampling doesn't always gravitate toward embedding-space outliers."""

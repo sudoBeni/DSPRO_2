@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { HardFactsForm } from "../hardfacts/page"
 
 type AnswerMap = Record<string, boolean>
@@ -39,6 +40,7 @@ export default function OnboardingPage() {
   const [allDisliked, setAllDisliked] = useState(false)
   const [msgIndex, setMsgIndex] = useState(0)
   const [loadKey, setLoadKey] = useState(0)
+  const [showIntro, setShowIntro] = useState(true)
 
   useEffect(() => {
     setImageIndex(0)
@@ -233,6 +235,23 @@ export default function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-white text-neutral-900">
+      <Dialog open={showIntro} onOpenChange={setShowIntro}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>How this works</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-neutral-600">
+                <p>You'll be shown a series of apartment listings. Swipe <strong>right</strong> to like or <strong>left</strong> to dislike each one.</p>
+                <p>These are randomly selected and do not take your filters into account. They are purely here to understand your visual taste.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setShowIntro(false)}>Got it, let's go</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6">
         <div className="mb-5 flex items-center justify-between">
           <div>
