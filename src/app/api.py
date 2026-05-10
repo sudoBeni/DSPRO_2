@@ -85,7 +85,6 @@ def search_recommendations(request: SearchProfileRequest) -> List[ListingRespons
 
 
 FEEDBACK_FILE = Path("../data/feedback.jsonl")
-RECALL_LEVELS = [round(i * 0.1, 1) for i in range(11)]  # 0.0, 0.1, …, 1.0
 RELEVANCE_THRESHOLD = 3  # rating 1-4, where 4=strongly agree
 
 
@@ -122,27 +121,20 @@ def _session_metrics(session: dict) -> dict | None:
     dcg = _dcg(dcg_gains)
     dcg_at_k = _dcg_at_k(dcg_gains)
 
+    precision_at_k = [sum(relevance[: k + 1]) / (k + 1) for k in range(n)]
+
     if R == 0:
         ap = 0.0
-        pr_curve = [{"precision": 0.0, "recall": rl} for rl in RECALL_LEVELS]
+        pr_curve = [{"precision": 0.0, "recall": 0.0} for _ in range(n)]
     else:
         ap = (
             sum((sum(relevance[: k + 1]) / (k + 1)) * relevance[k] for k in range(n))
             / R
         )
-        raw: list[dict] = [{"precision": 1.0, "recall": 0.0}]
-        for k in range(n):
-            hits = sum(relevance[: k + 1])
-            raw.append({"precision": hits / (k + 1), "recall": hits / R})
-        # 11-point interpolation: max precision at recall >= each level
+        # raw PR curve: one point per rank position, no interpolation
         pr_curve = [
-            {
-                "precision": max(
-                    (p["precision"] for p in raw if p["recall"] >= rl), default=0.0
-                ),
-                "recall": rl,
-            }
-            for rl in RECALL_LEVELS
+            {"precision": precision_at_k[k], "recall": sum(relevance[: k + 1]) / R}
+            for k in range(n)
         ]
 
     mean_rating = sum(gains) / n
@@ -154,6 +146,7 @@ def _session_metrics(session: dict) -> dict | None:
         "dcg": dcg,
         "dcg_at_k": dcg_at_k,
         "pr_curve": pr_curve,
+        "precision_at_k": precision_at_k,
         "mean_rating": mean_rating,
         "ratings": gains,
     }
@@ -197,20 +190,42 @@ def get_analytics() -> dict:
             )
             continue
 
-        avg_pr_curve = [
-            {
-                "recall": rl,
-                "precision": round(
-                    sum(s["pr_curve"][i]["precision"] for s in group) / n, 4
-                ),
-            }
-            for i, rl in enumerate(RECALL_LEVELS)
-        ]
+        # average raw PR curve by rank position across sessions
+        max_pr_k = max(len(s["pr_curve"]) for s in group)
+        avg_pr_curve = []
+        for k in range(max_pr_k):
+            pts = [s["pr_curve"][k] for s in group if k < len(s["pr_curve"])]
+            avg_pr_curve.append(
+                {
+                    "precision": round(sum(p["precision"] for p in pts) / len(pts), 4),
+                    "recall": round(sum(p["recall"] for p in pts) / len(pts), 4),
+                }
+            )
+        # AUC-PR via trapezoidal rule over the averaged raw curve
+        auc_pr = round(
+            sum(
+                abs(avg_pr_curve[i + 1]["recall"] - avg_pr_curve[i]["recall"])
+                * (avg_pr_curve[i + 1]["precision"] + avg_pr_curve[i]["precision"])
+                / 2
+                for i in range(len(avg_pr_curve) - 1)
+            ),
+            4,
+        )
+
         max_k = max(len(s["dcg_at_k"]) for s in group)
         avg_dcg_at_k = []
         for k in range(max_k):
             vals = [s["dcg_at_k"][k] for s in group if k < len(s["dcg_at_k"])]
             avg_dcg_at_k.append(round(sum(vals) / len(vals), 4))
+
+        # Average P@k across sessions, aligned by position
+        max_pk = max(len(s["precision_at_k"]) for s in group)
+        avg_precision_at_k = []
+        for k in range(max_pk):
+            vals = [
+                s["precision_at_k"][k] for s in group if k < len(s["precision_at_k"])
+            ]
+            avg_precision_at_k.append(round(sum(vals) / len(vals), 4))
 
         session_means = [sum(s["ratings"]) / len(s["ratings"]) for s in group]
         rating_stats = {
@@ -239,7 +254,9 @@ def get_analytics() -> dict:
                 "avg_p_at_k": round(sum(s["p_at_k"] for s in group) / n, 4),
                 "avg_dcg": round(sum(s["dcg"] for s in group) / n, 4),
                 "avg_dcg_at_k": avg_dcg_at_k,
+                "avg_precision_at_k": avg_precision_at_k,
                 "pr_curve": avg_pr_curve,
+                "auc_pr": auc_pr,
                 "rating_stats": rating_stats,
             }
         )
