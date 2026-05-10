@@ -185,7 +185,12 @@ def get_analytics() -> dict:
                     "n_sessions": 0,
                     "map": None,
                     "avg_p_at_k": None,
+                    "avg_dcg": None,
+                    "avg_dcg_at_k": [],
+                    "avg_precision_at_k": [],
                     "pr_curve": [],
+                    "auc_pr": None,
+                    "rating_stats": None,
                 }
             )
             continue
