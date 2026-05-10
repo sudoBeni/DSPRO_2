@@ -25,6 +25,7 @@ type SearchProfileRequest = {
 
 const SWIPE_THRESHOLD = 120
 const TOTAL_ONBOARDING_CARDS = 10
+const SUBMITTING_MESSAGES = ["Analyzing your taste…", "Processing your preferences…", "Looking for hidden gems…", "Finding your perfect apartments…", "One moment please…", "Double-checking the recommendations…"]
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -36,10 +37,20 @@ export default function OnboardingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imageIndex, setImageIndex] = useState(0)
   const [allDisliked, setAllDisliked] = useState(false)
+  const [msgIndex, setMsgIndex] = useState(0)
 
   useEffect(() => {
     setImageIndex(0)
   }, [index])
+
+  useEffect(() => {
+    if (!isSubmitting) return
+    setMsgIndex(0)
+    const interval = setInterval(() => {
+      setMsgIndex((i) => (i + 1) % SUBMITTING_MESSAGES.length)
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [isSubmitting])
 
   const current = cards[index]
   const total = TOTAL_ONBOARDING_CARDS
@@ -152,13 +163,21 @@ async function loadCards() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (isLoading) {
+  if (isLoading || isSubmitting) {
     return (
       <main className="min-h-screen bg-white text-neutral-900">
-        <div className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-4 py-6">
-          <p className="text-sm text-neutral-500">
-            {isSubmitting ? "Creating your recommendations..." : "Loading onboarding images..."}
-          </p>
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-4 py-6">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-medium text-neutral-900">
+              {isSubmitting ? SUBMITTING_MESSAGES[msgIndex] : "Loading onboarding images…"}
+            </p>
+            {isSubmitting && (
+              <p className="mt-1 text-sm text-neutral-500">This may take a few seconds</p>
+            )}
+          </div>
         </div>
       </main>
     )
