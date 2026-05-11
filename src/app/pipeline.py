@@ -1,6 +1,7 @@
 import base64
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -291,6 +292,12 @@ class Pipeline:
         return torch.tensor(response.embeddings[0].values, dtype=torch.float32)
 
     def _decode_base64_image(self, image_str: str) -> bytes:
+        if image_str.startswith("/api/images/"):
+            parts = image_str.split("/")
+            # /api/images/{object_id}/{filename}
+            object_id, filename = parts[3], parts[4]
+            img_path = Path("../data/selected_images") / object_id / filename
+            return img_path.read_bytes()
         if "," in image_str and image_str.startswith("data:"):
             image_str = image_str.split(",", 1)[1]
         return base64.b64decode(image_str)
