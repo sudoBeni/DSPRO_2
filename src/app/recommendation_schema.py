@@ -8,7 +8,7 @@ class OnboardingImage(BaseModel):
     label: str = Field(
         ..., description="A tag representing the user's preferred style."
     )
-    images: List[str] = Field(..., description="Base64-encoded images for this object.")
+    images: List[str] = Field(..., description="Image URLs for this object.")
 
 
 class HardFactsForm(BaseModel):
