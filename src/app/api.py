@@ -1,4 +1,3 @@
-import base64
 import fcntl
 import json
 import logging
@@ -69,13 +68,18 @@ def get_onboarding_recommendations() -> List[OnboardingImage]:
         OnboardingImage(
             id=obj_id,
             label=obj_id,
-            images=[
-                f"data:image/jpeg;base64,{base64.b64encode(img_path.read_bytes()).decode()}"
-                for img_path in img_paths
-            ],
+            images=[f"/api/images/{obj_id}/{img_path.name}" for img_path in img_paths],
         )
         for obj_id, img_paths in onboarding_objects
     ]
+
+
+@router.get("/images/{object_id}/{filename}")
+def get_onboarding_image(object_id: str, filename: str) -> FileResponse:
+    img_path = recommendation_service.get_selected_images_path() / object_id / filename
+    if not img_path.exists() or not img_path.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(path=img_path, media_type="image/jpeg")
 
 
 @router.post("/recommendations/search", response_model=List[ListingResponse])

@@ -74,6 +74,9 @@ class RecommendationService:
         )
         return [self._to_listing_response(item) for item in ranked]
 
+    def get_selected_images_path(self) -> Path:
+        return self._images_path
+
     def get_onboarding_objects(self, n: int = 10) -> list[tuple[str, list[Path]]]:
         if not self._images_path.exists():
             return []
