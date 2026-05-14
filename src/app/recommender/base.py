@@ -20,11 +20,18 @@ class BaseRecommender(ABC):
     ) -> list[RecommendationResult]: ...
 
     def _build_excluded_indices(
-        self, rated_items: list[RatedItem], include_liked: bool
+        self,
+        rated_items: list[RatedItem],
+        include_liked: bool,
+        excluded_ids: set[str] = frozenset(),
     ) -> set[int]:
-        return {
+        indices = {
             self._id_to_idx[item.object_id]
             for item in rated_items
             if item.object_id in self._id_to_idx
             and (item.rating != 1 or not include_liked)
         }
+        indices |= {
+            self._id_to_idx[oid] for oid in excluded_ids if oid in self._id_to_idx
+        }
+        return indices

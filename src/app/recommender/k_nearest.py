@@ -11,6 +11,7 @@ class KNearestRecommender(BaseRecommender):
         top_k: int = 10,
         include_liked: bool = False,
         min_per_like: int = 0,
+        excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         liked_ids = [item.object_id for item in rated_items if item.rating == 1]
 
@@ -27,7 +28,9 @@ class KNearestRecommender(BaseRecommender):
         # handle min_per_like so reserved slots never exceed top_k
         effective_min_per_like = min(min_per_like, top_k // len(liked_indices))
 
-        excluded_indices = self._build_excluded_indices(rated_items, include_liked)
+        excluded_indices = self._build_excluded_indices(
+            rated_items, include_liked, excluded_ids
+        )
 
         best_score: dict[int, float] = {}
         per_like_candidates: list[list[tuple[int, float]]] = []
