@@ -9,7 +9,7 @@ class KNearestRecommender(BaseRecommender):
         self,
         rated_items: list[RatedItem],
         top_k: int = 10,
-        include_liked: bool = True,
+        include_liked: bool = False,
         min_per_like: int = 0,
         excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { AnimatePresence, motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { HardFactsForm } from "../hardfacts/page"
 
 type AnswerMap = Record<string, boolean>
@@ -19,10 +20,13 @@ type OnboardingImageCard = {
 type SearchProfileRequest = {
   hard_facts: HardFactsForm
   liked_images: OnboardingImageCard[]
+  disliked_images: OnboardingImageCard[]
   top_k: number
 }
 
 const SWIPE_THRESHOLD = 120
+const TOTAL_ONBOARDING_CARDS = 10
+const SUBMITTING_MESSAGES = ["Analyzing your taste…", "Processing your preferences…", "Looking for hidden gems…", "Finding your perfect apartments…", "One moment please…", "Double-checking the recommendations…"]
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -33,56 +37,71 @@ export default function OnboardingPage() {
   const [answers, setAnswers] = useState<AnswerMap>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [imageIndex, setImageIndex] = useState(0)
+  const [allDisliked, setAllDisliked] = useState(false)
+  const [msgIndex, setMsgIndex] = useState(0)
+  const [loadKey, setLoadKey] = useState(0)
+  const [showIntro, setShowIntro] = useState(true)
 
   useEffect(() => {
     setImageIndex(0)
   }, [index])
 
+  useEffect(() => {
+    if (!isSubmitting) return
+    setMsgIndex(0)
+    const interval = setInterval(() => {
+      setMsgIndex((i) => (i + 1) % SUBMITTING_MESSAGES.length)
+    }, 2500)
+    return () => clearInterval(interval)
+  }, [isSubmitting])
+
   const current = cards[index]
-  const total = cards.length
+  const total = TOTAL_ONBOARDING_CARDS
   const progress = useMemo(() => {
-    if (total === 0) return 0
     return ((index + 1) / total) * 100
   }, [index, total])
 
   function buildSearchPayload(nextAnswers: AnswerMap): SearchProfileRequest {
     const likedImages = cards.filter((card) => nextAnswers[card.id] === true)
+    const dislikedImages = cards.filter((card) => nextAnswers[card.id] === false)
     const hardFacts = JSON.parse(sessionStorage.getItem("hardFacts") ?? "{}")
 
     return {
       hard_facts: hardFacts,
       liked_images: likedImages,
+      disliked_images: dislikedImages,
       top_k: 10,
     }
   }
 
   async function submitSearch(nextAnswers: AnswerMap) {
+    const hasLike = Object.values(nextAnswers).some((v) => v === true)
+    if (!hasLike) {
+      setAllDisliked(true)
+      return
+    }
+
     const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
     const payload = {
       ...buildSearchPayload(nextAnswers),
       strategy: session.strategy ?? "gemini",
-      seed: session.seed ?? 42,
     }
 
     sessionStorage.setItem("onboardingAnswers", JSON.stringify(nextAnswers))
-    sessionStorage.setItem("searchRequest", JSON.stringify(payload))
+    sessionStorage.setItem("onboardingCardIds", JSON.stringify(cards.map((c) => c.id)))
 
     setIsSubmitting(true)
     setError(null)
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
       const res = await fetch(`${apiUrl}/api/recommendations/search`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
 
-      if (!res.ok) {
-        throw new Error("Failed to create recommendations")
-      }
+      if (!res.ok) throw new Error("Failed to create recommendations")
 
       const recommendations = await res.json()
       sessionStorage.setItem("recommendations", JSON.stringify(recommendations))
@@ -97,11 +116,7 @@ export default function OnboardingPage() {
   function handleAnswer(value: boolean) {
     if (!current || isSubmitting) return
 
-    const nextAnswers = {
-      ...answers,
-      [current.id]: value,
-    }
-
+    const nextAnswers = { ...answers, [current.id]: value }
     setAnswers(nextAnswers)
 
     const isLast = index === total - 1
@@ -113,61 +128,69 @@ export default function OnboardingPage() {
     setIndex((prev) => prev + 1)
   }
 
-  function handleSkip() {
-    if (!current || isSubmitting) return
-
-    const isLast = index === total - 1
-    if (isLast) {
-      void submitSearch(answers)
-      return
-    }
-
-    setIndex((prev) => prev + 1)
+  function handleRestart() {
+    setAllDisliked(false)
+    setAnswers({})
+    setIndex(0)
+    sessionStorage.removeItem("onboardingCards")
+    setLoadKey((k) => k + 1)
   }
 
   useEffect(() => {
-    async function loadOnboardingCards() {
+    let cancelled = false
+
+    async function load() {
       try {
         setIsLoading(true)
         setError(null)
 
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
 
         let session = JSON.parse(sessionStorage.getItem("session") ?? "null")
         if (!session) {
           const sessionRes = await fetch(`${apiUrl}/api/session`)
           session = await sessionRes.json()
-          sessionStorage.setItem("session", JSON.stringify(session))
+          if (!cancelled) sessionStorage.setItem("session", JSON.stringify(session))
         }
 
-        const res = await fetch(
-          `${apiUrl}/api/recommendations/onboarding?strategy=${session.strategy}&seed=${session.seed}`
-        )
-
-        if (!res.ok) {
-          throw new Error("Failed to load onboarding cards")
+        const cachedCards = sessionStorage.getItem("onboardingCards")
+        if (cachedCards) {
+          if (!cancelled) setCards(JSON.parse(cachedCards) as OnboardingImageCard[])
+        } else {
+          const res = await fetch(`${apiUrl}/api/recommendations/onboarding`)
+          if (!res.ok) throw new Error("Failed to load onboarding cards")
+          const fetchedCards: OnboardingImageCard[] = await res.json()
+          if (!cancelled) {
+            sessionStorage.setItem("onboardingCards", JSON.stringify(fetchedCards))
+            setCards(fetchedCards)
+          }
         }
-
-        const data: OnboardingImageCard[] = await res.json()
-        setCards(data)
-        sessionStorage.setItem("onboardingCardIds", JSON.stringify(data.map((c) => c.id)))
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Something went wrong")
+        if (!cancelled) setError(err instanceof Error ? err.message : "Something went wrong")
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
 
-    loadOnboardingCards()
-  }, [])
+    void load()
+    return () => { cancelled = true }
+  }, [loadKey])
 
-  if (isLoading) {
+  if (isLoading || isSubmitting || (!current && !error && !allDisliked)) {
     return (
       <main className="min-h-screen bg-white text-neutral-900">
-        <div className="mx-auto flex min-h-screen w-full max-w-md items-center justify-center px-4 py-6">
-          <p className="text-sm text-neutral-500">
-            {isSubmitting ? "Creating your recommendations..." : "Loading onboarding images..."}
-          </p>
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-4 py-6">
+          <div className="relative h-16 w-16">
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-neutral-200 border-t-neutral-900" />
+          </div>
+          <div className="text-center">
+            <p className="text-base font-medium text-neutral-900">
+              {isSubmitting ? SUBMITTING_MESSAGES[msgIndex] : "Loading onboarding images…"}
+            </p>
+            {isSubmitting && (
+              <p className="mt-1 text-sm text-neutral-500">This may take a few seconds</p>
+            )}
+          </div>
         </div>
       </main>
     )
@@ -179,6 +202,22 @@ export default function OnboardingPage() {
         <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-4 px-4 py-6 text-center">
           <p className="text-sm text-red-600">{error}</p>
           <Button onClick={() => window.location.reload()}>Try again</Button>
+        </div>
+      </main>
+    )
+  }
+
+  if (allDisliked) {
+    return (
+      <main className="min-h-screen bg-white text-neutral-900">
+        <div className="mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-6 px-4 py-6 text-center">
+          <h1 className="text-2xl font-semibold">Nothing caught your eye?</h1>
+          <p className="text-sm text-neutral-500">
+            We need at least one apartment you like to generate recommendations. Give it another try!
+          </p>
+          <Button className="rounded-2xl px-8" onClick={handleRestart}>
+            Start over
+          </Button>
         </div>
       </main>
     )
@@ -196,6 +235,23 @@ export default function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-white text-neutral-900">
+      <Dialog open={showIntro} onOpenChange={setShowIntro}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>So funktioniert es</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-neutral-600">
+                <p>Dir werden verschiedene Inserate gezeigt. Wische nach <strong>rechts</strong> um ein Objekt zu liken, nach <strong>links</strong> um es abzulehnen.</p>
+                <p>Die Auswahl ist zufällig und berücksichtigt deine Filter nicht. Es geht nur darum, deinen visuellen Geschmack zu verstehen.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setShowIntro(false)}>Verstanden, los geht's</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-6">
         <div className="mb-5 flex items-center justify-between">
           <div>
@@ -287,26 +343,17 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-5 flex justify-between gap-3">
           <Button
             variant="outline"
-            className="rounded-2xl border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100"
+            className="rounded-2xl border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 flex-1"
             onClick={() => handleAnswer(false)}
             disabled={isSubmitting}
           >
             No
           </Button>
 
-          <Button
-            variant="ghost"
-            className="rounded-2xl text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
-            onClick={handleSkip}
-            disabled={isSubmitting}
-          >
-            Skip
-          </Button>
-
-          <Button className="rounded-2xl" onClick={() => handleAnswer(true)} disabled={isSubmitting}>
+          <Button className="rounded-2xl flex-1" onClick={() => handleAnswer(true)} disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : "Yes"}
           </Button>
         </div>

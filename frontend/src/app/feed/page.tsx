@@ -1,18 +1,27 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Property } from "@/types/property"
 import { PropertyCard } from "@/components/property-card"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 
 type Ratings = Record<string, number>
 
 export default function FeedPage() {
+  const router = useRouter()
   const [recommendations, setRecommendations] = useState<Property[]>([])
   const [ratings, setRatings] = useState<Ratings>({})
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showIntro, setShowIntro] = useState(true)
+
+  function handleDoAgain() {
+    sessionStorage.clear()
+    router.push("/hardfacts")
+  }
 
   useEffect(() => {
     const stored = sessionStorage.getItem("recommendations")
@@ -51,7 +60,6 @@ export default function FeedPage() {
 
     const payload = {
       strategy: session.strategy ?? "gemini",
-      seed: session.seed ?? 42,
       hard_facts: hardFacts,
       liked_object_ids: likedObjectIds,
       disliked_object_ids: dislikedObjectIds,
@@ -63,7 +71,7 @@ export default function FeedPage() {
     setError(null)
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ""
       const res = await fetch(`${apiUrl}/api/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -82,16 +90,41 @@ export default function FeedPage() {
   const allRated = ratedCount === recommendations.length && recommendations.length > 0
 
   if (submitted) {
+    const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
+    const strategy: string = session.strategy ?? "unknown"
     return (
       <div className="max-w-xl mx-auto p-6 text-center space-y-4 pt-20">
         <h1 className="text-2xl font-bold">Thank you!</h1>
         <p className="text-muted-foreground">Your feedback has been recorded.</p>
+        <p className="text-sm text-muted-foreground">
+          Recommender used: <span className="font-mono font-medium text-foreground">{strategy}</span>
+        </p>
+        <Button onClick={handleDoAgain}>Do again</Button>
       </div>
     )
   }
 
   return (
     <div className="max-w-xl mx-auto p-6 space-y-6">
+      <Dialog open={showIntro} onOpenChange={setShowIntro}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Deine Empfehlungen bewerten</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-neutral-600">
+                <p>Bewerte jedes Inserat auf einer Skala von <strong>1 (stimme gar nicht zu) bis 4 (stimme voll zu)</strong>, wie gut es deinem Geschmack entspricht.</p>
+                <p>Deine Filter setzen eine Mindestanzahl an Zimmern und einen Höchstpreis. Bitte beachte diese nicht bei der Bewertung, sondern beurteile nur Stil und Ausstattung.</p>
+                <p>Aufgrund des kleinen Datensatzes bitte auch die Lage ignorieren.</p>
+                <p className="text-neutral-400 text-xs">Die Bilder stammen von ImmoScout24 und werden so angezeigt wie im Originalinserat.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full" onClick={() => setShowIntro(false)}>Verstanden, jetzt bewerten</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Recommended for you</h1>

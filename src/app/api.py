@@ -1,9 +1,9 @@
-import base64
 import fcntl
 import json
 import logging
 import math
 import random
+import statistics as _stats
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
@@ -15,7 +15,8 @@ from app.recommendation_schema import (
     SearchProfileRequest,
 )
 from app.service import RecommendationService
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,55 +24,72 @@ router = APIRouter(prefix="/api", tags=["propertyfinder"])
 
 recommendation_service = RecommendationService()
 
-STRATEGIES = ["gemini", "weighted_vector", "k_nearest", "fuzzy_cluster"]
-SEEDS = [42, 123, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768]
+STRATEGIES = [
+    "gemini",
+    "single_vector",
+    "k_nearest",
+    "fuzzy_cluster",
+    "random_baseline",
+]
 
-_strategy_deck: list[str] = []
+
+def _pick_least_used_strategy() -> str:
+    counts: dict[str, int] = {s: 0 for s in STRATEGIES}
+    if FEEDBACK_FILE.exists():
+        with FEEDBACK_FILE.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    strategy = json.loads(line).get("strategy")
+                    if strategy in counts:
+                        counts[strategy] += 1
+    min_count = min(counts.values())
+    least_used = [s for s, c in counts.items() if c == min_count]
+    return random.choice(least_used)
 
 
-def _next_strategy() -> str:
-    """Return strategies in shuffled blocks of 4 so each appears equally often."""
-    global _strategy_deck
-    if not _strategy_deck:
-        _strategy_deck = random.sample(STRATEGIES, len(STRATEGIES))
-    return _strategy_deck.pop()
+@router.get("/health")
+def health() -> dict:
+    return {"status": "ok"}
 
 
 @router.get("/session")
 def create_session() -> dict:
-    strategy = _next_strategy()
-    seed = random.choice(SEEDS)
-    logger.info("New session assigned — strategy=%s seed=%d", strategy, seed)
-    return {"strategy": strategy, "seed": seed}
+    strategy = _pick_least_used_strategy()
+    logger.info("New session assigned — strategy=%s", strategy)
+    return {"strategy": strategy}
 
 
 @router.get("/recommendations/onboarding", response_model=List[OnboardingImage])
-def get_onboarding_recommendations(
-    strategy: str = "gemini", seed: int = 42
-) -> List[OnboardingImage]:
-    onboarding_objects = recommendation_service.get_onboarding_objects(seed=seed)
+def get_onboarding_recommendations() -> List[OnboardingImage]:
+    onboarding_objects = recommendation_service.get_onboarding_objects()
 
     return [
         OnboardingImage(
             id=obj_id,
             label=obj_id,
-            images=[
-                f"data:image/jpeg;base64,{base64.b64encode(img_path.read_bytes()).decode()}"
-                for img_path in img_paths
-            ],
+            images=[f"/api/images/{obj_id}/{img_path.name}" for img_path in img_paths],
         )
         for obj_id, img_paths in onboarding_objects
     ]
 
 
+@router.get("/images/{object_id}/{filename}")
+def get_onboarding_image(object_id: str, filename: str) -> FileResponse:
+    img_path = recommendation_service.get_selected_images_path() / object_id / filename
+    if not img_path.exists() or not img_path.is_file():
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(path=img_path, media_type="image/jpeg")
+
+
 @router.post("/recommendations/search", response_model=List[ListingResponse])
 def search_recommendations(request: SearchProfileRequest) -> List[ListingResponse]:
-    logger.info("Search request — strategy=%s seed=%d", request.strategy, request.seed)
+    logger.info("Search request — strategy=%s", request.strategy)
     return recommendation_service.search(request)
 
 
 FEEDBACK_FILE = Path("../data/feedback.jsonl")
-RECALL_LEVELS = [round(i * 0.1, 1) for i in range(11)]  # 0.0, 0.1, …, 1.0
+RELEVANCE_THRESHOLD = 3  # rating 1-4, where 4=strongly agree
 
 
 def _dcg(gains: list[float]) -> float:
@@ -89,8 +107,14 @@ def _dcg_at_k(gains: list[float]) -> list[float]:
 
 def _session_metrics(session: dict) -> dict | None:
     ratings = sorted(session.get("ratings", []), key=lambda x: x["position"])
-    gains = [r["rating"] for r in ratings]  # graded relevance 1-3 (or 0)
-    relevance = [1 if g >= 3 else 0 for g in gains]
+    gains = [r["rating"] for r in ratings]
+    relevance = [1 if g >= RELEVANCE_THRESHOLD else 0 for g in gains]
+    # 2^r − 1 gain: strongly agree (4) → 3, agree (3) → 1, below threshold → 0
+    # exponential weighting because a strongly agree is qualitatively more valuable than agree
+    dcg_gains = [
+        2 ** (g - RELEVANCE_THRESHOLD + 1) - 1 if g >= RELEVANCE_THRESHOLD else 0
+        for g in gains
+    ]
     n = len(relevance)
     if n == 0:
         return None
@@ -98,31 +122,26 @@ def _session_metrics(session: dict) -> dict | None:
     R = sum(relevance)
     p_at_k = sum(relevance) / n
 
-    dcg = _dcg(gains)
-    dcg_at_k = _dcg_at_k(gains)
+    dcg = _dcg(dcg_gains)
+    dcg_at_k = _dcg_at_k(dcg_gains)
+
+    precision_at_k = [sum(relevance[: k + 1]) / (k + 1) for k in range(n)]
 
     if R == 0:
         ap = 0.0
-        pr_curve = [{"precision": 0.0, "recall": rl} for rl in RECALL_LEVELS]
+        pr_curve = [{"precision": 0.0, "recall": 0.0} for _ in range(n)]
     else:
         ap = (
             sum((sum(relevance[: k + 1]) / (k + 1)) * relevance[k] for k in range(n))
             / R
         )
-        raw: list[dict] = [{"precision": 1.0, "recall": 0.0}]
-        for k in range(n):
-            hits = sum(relevance[: k + 1])
-            raw.append({"precision": hits / (k + 1), "recall": hits / R})
-        # 11-point interpolation: max precision at recall >= each level
+        # raw PR curve: one point per rank position, no interpolation
         pr_curve = [
-            {
-                "precision": max(
-                    (p["precision"] for p in raw if p["recall"] >= rl), default=0.0
-                ),
-                "recall": rl,
-            }
-            for rl in RECALL_LEVELS
+            {"precision": precision_at_k[k], "recall": sum(relevance[: k + 1]) / R}
+            for k in range(n)
         ]
+
+    mean_rating = sum(gains) / n
 
     return {
         "strategy": session["strategy"],
@@ -131,6 +150,9 @@ def _session_metrics(session: dict) -> dict | None:
         "dcg": dcg,
         "dcg_at_k": dcg_at_k,
         "pr_curve": pr_curve,
+        "precision_at_k": precision_at_k,
+        "mean_rating": mean_rating,
+        "ratings": gains,
     }
 
 
@@ -144,10 +166,10 @@ def get_analytics() -> dict:
 
     sessions: list[dict] = []
     with FEEDBACK_FILE.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                m = _session_metrics(json.loads(line))
+        for raw_line in f:
+            stripped = raw_line.strip()
+            if stripped:
+                m = _session_metrics(json.loads(stripped))
                 if m:
                     sessions.append(m)
 
@@ -167,25 +189,71 @@ def get_analytics() -> dict:
                     "n_sessions": 0,
                     "map": None,
                     "avg_p_at_k": None,
+                    "avg_dcg": None,
+                    "avg_dcg_at_k": [],
+                    "avg_precision_at_k": [],
                     "pr_curve": [],
+                    "auc_pr": None,
+                    "rating_stats": None,
                 }
             )
             continue
 
-        avg_pr_curve = [
-            {
-                "recall": rl,
-                "precision": round(
-                    sum(s["pr_curve"][i]["precision"] for s in group) / n, 4
-                ),
-            }
-            for i, rl in enumerate(RECALL_LEVELS)
-        ]
+        # average raw PR curve by rank position across sessions
+        max_pr_k = max(len(s["pr_curve"]) for s in group)
+        avg_pr_curve = []
+        for k in range(max_pr_k):
+            pts = [s["pr_curve"][k] for s in group if k < len(s["pr_curve"])]
+            avg_pr_curve.append(
+                {
+                    "precision": round(sum(p["precision"] for p in pts) / len(pts), 4),
+                    "recall": round(sum(p["recall"] for p in pts) / len(pts), 4),
+                }
+            )
+        # AUC-PR via trapezoidal rule over the averaged raw curve
+        auc_pr = round(
+            sum(
+                abs(avg_pr_curve[i + 1]["recall"] - avg_pr_curve[i]["recall"])
+                * (avg_pr_curve[i + 1]["precision"] + avg_pr_curve[i]["precision"])
+                / 2
+                for i in range(len(avg_pr_curve) - 1)
+            ),
+            4,
+        )
+
         max_k = max(len(s["dcg_at_k"]) for s in group)
         avg_dcg_at_k = []
         for k in range(max_k):
             vals = [s["dcg_at_k"][k] for s in group if k < len(s["dcg_at_k"])]
             avg_dcg_at_k.append(round(sum(vals) / len(vals), 4))
+
+        # Average P@k across sessions, aligned by position
+        max_pk = max(len(s["precision_at_k"]) for s in group)
+        avg_precision_at_k = []
+        for k in range(max_pk):
+            vals = [
+                s["precision_at_k"][k] for s in group if k < len(s["precision_at_k"])
+            ]
+            avg_precision_at_k.append(round(sum(vals) / len(vals), 4))
+
+        session_means = [sum(s["ratings"]) / len(s["ratings"]) for s in group]
+        rating_stats = {
+            "mean": round(_stats.mean(session_means), 4),
+            "median": round(_stats.median(session_means), 4),
+            "std": round(_stats.stdev(session_means), 4)
+            if len(session_means) > 1
+            else 0.0,
+            "min": round(min(session_means), 4),
+            "max": round(max(session_means), 4),
+            "q1": round(_stats.quantiles(session_means, n=4)[0], 4)
+            if len(session_means) >= 4
+            else round(_stats.median(session_means), 4),
+            "q3": round(_stats.quantiles(session_means, n=4)[2], 4)
+            if len(session_means) >= 4
+            else round(_stats.median(session_means), 4),
+            "session_means": [round(m, 4) for m in session_means],
+            "n_sessions": n,
+        }
 
         strategy_results.append(
             {
@@ -195,7 +263,10 @@ def get_analytics() -> dict:
                 "avg_p_at_k": round(sum(s["p_at_k"] for s in group) / n, 4),
                 "avg_dcg": round(sum(s["dcg"] for s in group) / n, 4),
                 "avg_dcg_at_k": avg_dcg_at_k,
+                "avg_precision_at_k": avg_precision_at_k,
                 "pr_curve": avg_pr_curve,
+                "auc_pr": auc_pr,
+                "rating_stats": rating_stats,
             }
         )
 
@@ -212,6 +283,17 @@ def get_analytics() -> dict:
     }
 
 
+@router.get("/feedback/download")
+def download_feedback() -> FileResponse:
+    if not FEEDBACK_FILE.exists():
+        raise HTTPException(status_code=404, detail="No feedback data yet.")
+    return FileResponse(
+        path=FEEDBACK_FILE,
+        media_type="application/x-ndjson",
+        filename="feedback.jsonl",
+    )
+
+
 @router.post("/feedback")
 def submit_feedback(request: FeedbackRequest) -> dict:
     record = {
@@ -219,9 +301,8 @@ def submit_feedback(request: FeedbackRequest) -> dict:
         **request.model_dump(),
     }
     logger.info(
-        "Feedback received — strategy=%s seed=%d liked=%d disliked=%d skipped=%d ratings=%d",
+        "Feedback received — strategy=%s liked=%d disliked=%d skipped=%d ratings=%d",
         request.strategy,
-        request.seed,
         len(request.liked_object_ids),
         len(request.disliked_object_ids),
         len(request.skipped_object_ids),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -23,8 +24,38 @@ class RecommendationService:
         self._embedding_store = self._load_embedding_store()
         self._listings = self._load_listings()
         self._listings_by_object_id = self._index_listings_by_object_id(self._listings)
+        self._onboarding_eligible: set[str] = self._compute_onboarding_eligible()
 
         self._pipelines: dict[str, Pipeline] = {}
+
+    def _compute_onboarding_eligible(
+        self, isolation_percentile_cutoff: float = 10
+    ) -> set[str]:
+        """Exclude the most isolated objects from onboarding so farthest-point
+        sampling doesn't always gravitate toward embedding-space outliers."""
+        embeddings = self._embedding_store.get("embeddings")
+        rows = self._embedding_store.get("rows", [])
+        if embeddings is None or len(rows) == 0:
+            return set()
+        import torch.nn.functional as F
+
+        emb = F.normalize(embeddings.float(), p=2, dim=1)
+        avg_sims = (emb @ emb.T).mean(dim=1)  # [N]
+        threshold = float(
+            avg_sims.kthvalue(
+                max(1, int(len(avg_sims) * isolation_percentile_cutoff / 100))
+            ).values
+        )
+        eligible = {
+            str(rows[i]["object_id"])
+            for i in range(len(rows))
+            if float(avg_sims[i]) >= threshold
+        }
+        excluded = len(rows) - len(eligible)
+        print(
+            f"Onboarding pool: {len(eligible)} eligible, {excluded} outliers excluded (bottom {isolation_percentile_cutoff}%)"
+        )
+        return eligible
 
     def _get_pipeline(self, strategy: str) -> Pipeline:
         if strategy not in self._pipelines:
@@ -35,24 +66,91 @@ class RecommendationService:
 
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
         pipeline = self._get_pipeline(request.strategy)
-        ranked = pipeline.run(request.liked_images, request.top_k, request.hard_facts)
+        ranked = pipeline.run(
+            request.liked_images,
+            request.top_k,
+            request.hard_facts,
+            request.disliked_images,
+        )
         return [self._to_listing_response(item) for item in ranked]
 
-    def get_onboarding_objects(
-        self, n: int = 10, seed: int = 42
-    ) -> list[tuple[str, list[Path]]]:
+    def get_selected_images_path(self) -> Path:
+        return self._images_path
+
+    def get_onboarding_objects(self, n: int = 10) -> list[tuple[str, list[Path]]]:
         if not self._images_path.exists():
             return []
 
-        import random
-
-        obj_dirs = sorted(d for d in self._images_path.iterdir() if d.is_dir())
+        MIN_IMAGES = 4
+        obj_dirs = {
+            d.name: d
+            for d in self._images_path.iterdir()
+            if d.is_dir()
+            and sum(1 for _ in d.glob("*.jpg")) >= MIN_IMAGES
+            and (not self._onboarding_eligible or d.name in self._onboarding_eligible)
+        }
         if not obj_dirs:
             return []
 
-        rng = random.Random(seed)
-        selected = rng.sample(obj_dirs, min(n, len(obj_dirs)))
-        return [(d.name, sorted(d.glob("*.jpg"))) for d in selected]
+        selected_ids = self._farthest_point_sample(list(obj_dirs.keys()), n)
+        return [(oid, sorted(obj_dirs[oid].glob("*.jpg"))) for oid in selected_ids]
+
+    def _farthest_point_sample(self, candidate_ids: list[str], n: int) -> list[str]:
+        """Pick n diverse object_ids using farthest-point sampling on embeddings.
+
+        Falls back to random sampling when an object_id has no embedding.
+        """
+        rows = self._embedding_store.get("rows", [])
+        embeddings = self._embedding_store.get("embeddings")
+
+        # Build index: object_id -> embedding row index
+        id_to_idx: dict[str, int] = {
+            str(row["object_id"]): i for i, row in enumerate(rows)
+        }
+
+        # Split candidates into those with and without an embedding
+        with_emb = [oid for oid in candidate_ids if oid in id_to_idx]
+        without_emb = [oid for oid in candidate_ids if oid not in id_to_idx]
+
+        n = min(n, len(candidate_ids))
+
+        if not with_emb or embeddings is None:
+            return random.Random().sample(candidate_ids, n)
+
+        # Extract the relevant embeddings
+        indices = [id_to_idx[oid] for oid in with_emb]
+        emb = embeddings[indices].float()
+        norms = emb.norm(dim=1, keepdim=True).clamp(min=1e-8)
+        emb = emb / norms  # shape: [M, D]
+
+        # Farthest-point sampling
+        selected_local: list[int] = [random.Random().randrange(len(with_emb))]
+        selected_set: set[int] = set(selected_local)
+        max_sim = torch.full((len(with_emb),), -float("inf"))
+
+        while len(selected_local) < min(n, len(with_emb)):
+            last = selected_local[-1]
+            sims = emb @ emb[last]  # cosine similarities to last selected point
+            max_sim = torch.maximum(max_sim, sims)
+
+            # Mask already-selected so they are never picked again
+            for idx in selected_set:
+                max_sim[idx] = float("inf")
+
+            next_idx = int(max_sim.argmin())
+            selected_local.append(next_idx)
+            selected_set.add(next_idx)
+
+        result = [with_emb[i] for i in selected_local]
+
+        # Fill remaining slots from unembedded candidates if needed
+        remaining = n - len(result)
+        if remaining > 0 and without_emb:
+            result += random.Random().sample(
+                without_emb, min(remaining, len(without_emb))
+            )
+
+        return result
 
     def _load_listings(self) -> List[Dict[str, Any]]:
         if not self._data_path.exists():

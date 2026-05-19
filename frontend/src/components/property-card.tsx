@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,6 +29,13 @@ export function PropertyCard({ property, rating, onRate }: Props) {
   const hasMultipleImages = imageNames.length > 1
   const currentImage = imageNames[activeImageIndex]
 
+  useEffect(() => {
+    imageNames.forEach((name) => {
+      const img = new window.Image()
+      img.src = `/data/images/${name}`
+    })
+  }, [imageNames])
+
   function showPreviousImage() {
     setActiveImageIndex((prev) => {
       if (imageNames.length === 0) return 0
@@ -54,9 +61,6 @@ export function PropertyCard({ property, rating, onRate }: Props) {
           fill
           className="object-cover"
         />
-        <Badge className="absolute top-3 left-3 bg-black/70 backdrop-blur">
-          {property.match_score}% Match
-        </Badge>
         {hasMultipleImages && (
           <>
             <Button
@@ -100,7 +104,7 @@ export function PropertyCard({ property, rating, onRate }: Props) {
 
         {/* Meta info */}
         <div className="text-sm text-muted-foreground">
-          {property.n_rooms}, {property.street}, {property.postal_code}
+          {property.n_rooms}
         </div>
 
         {/* AI explanation */}
