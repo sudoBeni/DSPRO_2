@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 import torch
 from app.pipeline import Pipeline
 from app.recommendation_schema import ListingResponse, SearchProfileRequest
+from google.genai.errors import ServerError
 
 
 class RecommendationService:
@@ -64,14 +65,36 @@ class RecommendationService:
             )
         return self._pipelines[strategy]
 
+    _GEMINI_FALLBACK_POOL = [
+        "single_vector",
+        "k_nearest",
+        "fuzzy_cluster",
+        "random_baseline",
+    ]
+
     def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
         pipeline = self._get_pipeline(request.strategy)
-        ranked = pipeline.run(
-            request.liked_images,
-            request.top_k,
-            request.hard_facts,
-            request.disliked_images,
-        )
+        try:
+            ranked = pipeline.run(
+                request.liked_images,
+                request.top_k,
+                request.hard_facts,
+                request.disliked_images,
+            )
+        except ServerError as e:
+            if request.strategy != "gemini" or e.status_code != 503:
+                raise
+            fallback_strategy = random.choice(self._GEMINI_FALLBACK_POOL)
+            print(
+                f"[service] Gemini 503 — falling back to '{fallback_strategy}'",
+                flush=True,
+            )
+            ranked = self._get_pipeline(fallback_strategy).run(
+                request.liked_images,
+                request.top_k,
+                request.hard_facts,
+                request.disliked_images,
+            )
         return [self._to_listing_response(item) for item in ranked]
 
     def get_selected_images_path(self) -> Path:
