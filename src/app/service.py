@@ -82,7 +82,7 @@ class RecommendationService:
                 request.disliked_images,
             )
         except ServerError as e:
-            if request.strategy != "gemini" or e.status_code != 503:
+            if request.strategy != "gemini" or e.code != 503:
                 raise
             fallback_strategy = random.choice(self._GEMINI_FALLBACK_POOL)
             print(
