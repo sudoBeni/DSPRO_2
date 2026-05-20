@@ -103,8 +103,11 @@ export default function OnboardingPage() {
 
       if (!res.ok) throw new Error("Failed to create recommendations")
 
-      const recommendations = await res.json()
-      sessionStorage.setItem("recommendations", JSON.stringify(recommendations))
+      const data = await res.json()
+      sessionStorage.setItem("recommendations", JSON.stringify(data.results))
+      // store actual strategy (may differ from session if gemini fell back)
+      const session = JSON.parse(sessionStorage.getItem("session") ?? "{}")
+      sessionStorage.setItem("session", JSON.stringify({ ...session, strategy: data.strategy }))
       router.push("/feed")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong")

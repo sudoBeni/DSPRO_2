@@ -72,8 +72,11 @@ class RecommendationService:
         "random_baseline",
     ]
 
-    def search(self, request: SearchProfileRequest) -> List[ListingResponse]:
-        pipeline = self._get_pipeline(request.strategy)
+    def search(
+        self, request: SearchProfileRequest
+    ) -> tuple[List[ListingResponse], str]:
+        actual_strategy = request.strategy
+        pipeline = self._get_pipeline(actual_strategy)
         try:
             ranked = pipeline.run(
                 request.liked_images,
@@ -84,18 +87,18 @@ class RecommendationService:
         except ServerError as e:
             if request.strategy != "gemini" or e.code != 503:
                 raise
-            fallback_strategy = random.choice(self._GEMINI_FALLBACK_POOL)
+            actual_strategy = random.choice(self._GEMINI_FALLBACK_POOL)
             print(
-                f"[service] Gemini 503 — falling back to '{fallback_strategy}'",
+                f"[service] Gemini 503 — falling back to '{actual_strategy}'",
                 flush=True,
             )
-            ranked = self._get_pipeline(fallback_strategy).run(
+            ranked = self._get_pipeline(actual_strategy).run(
                 request.liked_images,
                 request.top_k,
                 request.hard_facts,
                 request.disliked_images,
             )
-        return [self._to_listing_response(item) for item in ranked]
+        return [self._to_listing_response(item) for item in ranked], actual_strategy
 
     def get_selected_images_path(self) -> Path:
         return self._images_path

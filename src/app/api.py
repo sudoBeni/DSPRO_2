@@ -10,9 +10,9 @@ from typing import List
 
 from app.recommendation_schema import (
     FeedbackRequest,
-    ListingResponse,
     OnboardingImage,
     SearchProfileRequest,
+    SearchResponse,
 )
 from app.service import RecommendationService
 from fastapi import APIRouter, HTTPException
@@ -82,10 +82,13 @@ def get_onboarding_image(object_id: str, filename: str) -> FileResponse:
     return FileResponse(path=img_path, media_type="image/jpeg")
 
 
-@router.post("/recommendations/search", response_model=List[ListingResponse])
-def search_recommendations(request: SearchProfileRequest) -> List[ListingResponse]:
+@router.post("/recommendations/search", response_model=SearchResponse)
+def search_recommendations(request: SearchProfileRequest) -> SearchResponse:
     logger.info("Search request — strategy=%s", request.strategy)
-    return recommendation_service.search(request)
+    results, actual_strategy = recommendation_service.search(request)
+    if actual_strategy != request.strategy:
+        logger.info("Gemini 503 fallback — actual strategy=%s", actual_strategy)
+    return SearchResponse(strategy=actual_strategy, results=results)
 
 
 FEEDBACK_FILE = Path("../data/feedback.jsonl")

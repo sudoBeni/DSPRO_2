@@ -44,6 +44,11 @@ class RatingItem(BaseModel):
     rating: int  # 1=strongly disagree, 2=somewhat disagree, 3=somewhat agree, 4=strongly agree
 
 
+class SearchResponse(BaseModel):
+    strategy: str
+    results: List["ListingResponse"]
+
+
 class FeedbackRequest(BaseModel):
     strategy: str
     hard_facts: HardFactsForm
@@ -55,6 +60,7 @@ class FeedbackRequest(BaseModel):
 
 __all__ = [
     "SearchProfileRequest",
+    "SearchResponse",
     "ListingResponse",
     "OnboardingImage",
     "HardFactsForm",
