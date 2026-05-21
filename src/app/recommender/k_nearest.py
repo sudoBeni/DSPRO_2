@@ -10,7 +10,7 @@ class KNearestRecommender(BaseRecommender):
         rated_items: list[RatedItem],
         top_k: int = 10,
         include_liked: bool = False,
-        min_per_like: int = 1,
+        min_per_like: int = 10,  # for >= 2 likes this value gets clamped
         excluded_ids: set[str] = frozenset(),
     ) -> list[RecommendationResult]:
         liked_ids = [item.object_id for item in rated_items if item.rating == 1]
