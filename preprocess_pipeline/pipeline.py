@@ -1,9 +1,13 @@
 import json
 import logging
+import argparse
+
 from pathlib import Path
 
 from classifier import MODEL_ID, CLIPClassifier
 from selector import ApartmentBinMap, QuotaSelector
+from dedpup_scraped_listings import dedup_raw_listings
+from dedup_images import dedup_images
 
 # --- Configuration ---
 
@@ -129,8 +133,20 @@ def run_pipeline(jsonl_path: Path, images_root: Path, output_path: Path) -> None
 # --- Run ---
 
 if __name__ == "__main__":
-    JSONL_PATH = Path("preprocess_pipeline/cleaned_apartements.jsonl")
-    IMAGES_DIR = Path("preprocess_pipeline/images")
-    OUTPUT_PATH = Path("preprocess_pipeline/cleaned_apartements_processed.jsonl")
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--prepare",
+        action="store_true",
+        help="Run preprocessing prerequisites before CLIP pipeline",
+    )
+    args = parser.parse_args()
 
+    JSONL_PATH = Path("data/cleaned/cleaned_apartements.jsonl")
+    IMAGES_DIR = Path("data/raw/images")
+    OUTPUT_PATH = Path("preprocess_pipeline/cleaned_apartements_processed.jsonl")
+    
+    if args.prepare:
+        dedup_raw_listings()
+        dedup_images()
+        
     run_pipeline(JSONL_PATH, IMAGES_DIR, OUTPUT_PATH)
