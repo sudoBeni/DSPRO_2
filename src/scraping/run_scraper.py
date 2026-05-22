@@ -7,7 +7,6 @@ from pathlib import Path
 
 import click
 import requests
-from dedpup_scraped_listings import dedup_raw_listings
 from selenium import webdriver
 from selenium.common.exceptions import (
     NoSuchElementException,
@@ -236,9 +235,12 @@ def extract_listings(driver: webdriver, n_pages: int) -> None:
                 except requests.RequestException as e:
                     log.warning(f"Image download failed for {url}: {e}")
                     continue
+                
+                listing_image_dir = IMAGE_FOLDER / str(apartment_id)
+                listing_image_dir.mkdir(parents=True, exist_ok=True)
 
                 with open(
-                    IMAGE_FOLDER / f"apartment_{apartment_id}_{j}.jpg", "wb"
+                    listing_image_dir / f"apartment_{apartment_id}_{j}.jpg", "wb"
                 ) as f:
                     f.write(response.content)
                 count += 1
@@ -300,8 +302,6 @@ def main(num_start_page: int, num_pages_to_scrape: int) -> None:
     extract_listings(driver=driver, n_pages=num_pages_to_scrape)
 
     driver.close()
-
-    dedup_raw_listings()
 
 
 if __name__ == "__main__":
