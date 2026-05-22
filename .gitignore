@@ -1,6 +1,7 @@
 *.png
 *.jpeg
 *.jpg
+data/raw/
 
 *.env
 *.env.docker
