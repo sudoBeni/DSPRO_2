@@ -15,10 +15,6 @@ log = logging.getLogger(__name__)
 
 
 def dedup_raw_listings() -> None:
-    """
-    This method goes through the raw Data and appends non-duplicates
-    To a cleaned jsonl file for further processing
-    """
 
     cleaned_file_path.parent.mkdir(parents=True, exist_ok=True)
 
