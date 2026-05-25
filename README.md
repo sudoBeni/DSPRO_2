@@ -13,12 +13,14 @@ different recommendation strategies can be compared in the analytics view.
   feed, and analytics dashboard.
 - Preprocessed apartment data, image folders, and precomputed embedding stores
   used by the recommenders.
+- Selenium scraper for collecting apartment listings and images from ImmoScout24.
 - Preprocessing and embedding scripts/notebooks used to build the data artifacts.
 
 ## Tech stack
 
 - Backend: Python 3.12, FastAPI, Uvicorn, PyTorch, Google Gemini API.
 - Frontend: Next.js, React, TypeScript, Tailwind CSS.
+- Scraping: Selenium, Chrome, Requests.
 - Tooling: uv for Python dependencies, npm for frontend dependencies, Docker
   Compose for running both services together.
 
@@ -27,6 +29,7 @@ different recommendation strategies can be compared in the analytics view.
 ```text
 .
 |-- src/app/                 # FastAPI application and recommender service
+|-- src/scraping/            # Selenium web scraper
 |-- frontend/                # Next.js application
 |-- data/                    # Listing data, images, selected onboarding images
 |-- embedding/               # Embedding stores and embedding/cluster scripts
@@ -59,6 +62,48 @@ from the project root after `data/images/` is available:
 ```bash
 uv run python populate_selected_images.py
 ```
+
+## Selenium web scraper
+
+The scraper in `src/scraping/run_scraper.py` collects apartment listings from
+ImmoScout24 and downloads listing images. It uses Selenium to drive Chrome and
+Requests to download image files.
+
+Requirements:
+
+- Google Chrome installed locally.
+- Python dependencies installed with `uv sync`.
+- Network access to ImmoScout24 and to image URLs.
+
+Run the scraper from the project root so its relative output paths resolve
+correctly:
+
+```bash
+uv sync
+uv run python src/scraping/run_scraper.py --num-start-page 0 --num-pages-to-scrape 5
+```
+
+CLI options:
+
+- `--num-start-page`: number of result pages to skip before scraping. The
+  default is `0`, which starts on the first result page.
+- `--num-pages-to-scrape`: number of result pages to scrape. The default is
+  `100`; use a smaller number for test runs.
+
+The scraper writes raw outputs to:
+
+- `data/raw/apartements.jsonl` for listing metadata.
+- `data/raw/images/{object_id}/` for downloaded listing images, with at most 20
+  images per listing.
+
+After scraping, deduplicate the raw listings:
+
+```bash
+uv run python preprocess_pipeline/dedpup_scraped_listings.py
+```
+
+This creates `data/cleaned/cleaned_apartements.jsonl`, which can then be used by
+the preprocessing pipeline to produce the app-ready data artifacts.
 
 ## Environment variables
 
