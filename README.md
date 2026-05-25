@@ -1,6 +1,6 @@
 # DSPRO 2
 
-DSPRO_2 is a real-estate recommendation prototype. Users enter a few hard
+DSPRO 2 is a real-estate recommendation prototype. Users enter a few hard
 constraints, swipe through apartment images to express visual preferences, then
 receive ranked apartment recommendations. The app also records feedback so the
 different recommendation strategies can be compared in the analytics view.
@@ -36,7 +36,7 @@ different recommendation strategies can be compared in the analytics view.
 |-- preprocess_pipeline/     # Data cleaning and image selection pipeline
 |-- exploration/             # Experiment notebooks and scripts
 |-- docker-compose.dev.yml   # Local development Docker Compose setup
-|-- docker-compose.yml       # Production-style Compose setup
+|-- docker-compose.yml       # Production-style Compose setup (used for data collection)
 `-- pyproject.toml           # Python project dependencies and lint settings
 ```
 
@@ -190,7 +190,7 @@ Open http://localhost:3000.
    collects ratings.
 4. `/analytics`: reads submitted feedback and compares recommender strategies.
 
-Sessions are assigned to the least-used recommendation strategy based on
+Sessions start at a random appartment and the rest of the onboarding is created through farthest point sampling, then they are assigned to the least-used recommendation strategy based on
 `data/feedback.jsonl`. Strategies currently include `gemini`, `single_vector`,
 `k_nearest`, `fuzzy_cluster`, and `random_baseline`.
 
