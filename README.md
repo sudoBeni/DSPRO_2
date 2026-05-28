@@ -1,8 +1,10 @@
-# DSPRO 2
+# ProppertyFinder - Visual Real Estate Recommender
+## HSLU Project - Module DSPRO 2
 
-DSPRO 2 is a real-estate recommendation prototype. Users enter a few hard
-constraints, swipe through apartment images to express visual preferences, then
-receive ranked apartment recommendations. The app also records feedback so the
+ProppertyFinder is a visual, multimodal-embedding-based apartment
+recommendation prototype. Users enter a few hard constraints, swipe through
+apartment images to express visual preferences, then receive ranked apartment
+recommendations matched on combined image and text embeddings. The app also records feedback so the
 different recommendation strategies can be compared in the analytics view.
 
 ## What is included
@@ -36,7 +38,7 @@ different recommendation strategies can be compared in the analytics view.
 |-- preprocess_pipeline/     # Data cleaning and image selection pipeline
 |-- exploration/             # Experiment notebooks and scripts
 |-- docker-compose.dev.yml   # Local development Docker Compose setup
-|-- docker-compose.yml       # Production-style Compose setup (used for data collection)
+|-- docker-compose.yml       # Production-style Compose setup (used for feedback collection)
 `-- pyproject.toml           # Python project dependencies and lint settings
 ```
 
@@ -233,7 +235,7 @@ in this order:
    images inside each listing's image folder.
 3. `preprocess_pipeline/pipeline.py` — classifies images with CLIP and picks a
    room-type-balanced subset per apartment, so embeddings see a representative
-   set of rooms instead of (often) many similar living-room shots.
+   set of rooms.
 4. `embedding/create_gemini_embeddings.py` — embeds each listing (selected
    images + text prompt) with the Gemini embedding model. These vectors are
    what the recommenders score similarity against.
