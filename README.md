@@ -222,14 +222,30 @@ npm run lint
 
 ## Data and embedding scripts
 
-The app consumes generated artifacts from `data/` and `embedding/`. Supporting
-scripts live in:
+The app consumes generated artifacts from `data/` and `embedding/`. These
+scripts are not required for a normal app run when the generated artifacts
+already exist. To rebuild the artifacts from scratch after a scrape, run them
+in this order:
 
-- `preprocess_pipeline/` for cleaning listing data and selecting images.
-- `embedding/` for creating Gemini embeddings, filtering embeddings, clustering,
-  and adding cluster memberships.
-- `populate_selected_images.py` for preparing the selected onboarding image
-  folders.
-
-These scripts are not required for a normal app run when the generated artifacts
-already exist.
+1. `preprocess_pipeline/dedpup_scraped_listings.py` — deduplicates raw listings
+   by `object_id` so each apartment appears only once.
+2. `preprocess_pipeline/dedup_images.py` — removes byte-identical duplicate
+   images inside each listing's image folder.
+3. `preprocess_pipeline/pipeline.py` — classifies images with CLIP and picks a
+   room-type-balanced subset per apartment, so embeddings see a representative
+   set of rooms instead of (often) many similar living-room shots.
+4. `embedding/create_gemini_embeddings.py` — embeds each listing (selected
+   images + text prompt) with the Gemini embedding model. These vectors are
+   what the recommenders score similarity against.
+5. `embedding/filter_embeddings.py` — drops a hand-picked list of outlier
+   listings that distorted the embedding space and clustering.
+6. `embedding/cluster_embeddings.py` — runs PCA + GMM soft clustering, which
+   gives the `fuzzy_cluster` recommender its cluster memberships and
+   centroids.
+7. `embedding/add_cluster_memberships.py` — merges embeddings, memberships and
+   centroids into the single `gemini_embeddings_clustered.pt` store that the
+   backend loads.
+8. `data/filter_jsonl_by_pt.py` — keeps only listings that survived embedding
+   and filtering, so the JSONL stays aligned with the embedding store.
+9. `populate_selected_images.py` — copies the CLIP-selected images into
+   `data/selected_images/{object_id}/` for the onboarding swiping UI.
