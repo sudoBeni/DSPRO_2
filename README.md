@@ -7,6 +7,17 @@ apartment images to express visual preferences, then receive ranked apartment
 recommendations matched on combined image and text embeddings. The app also records feedback so the
 different recommendation strategies can be compared in the analytics view.
 
+## Live demo
+
+You can try the deployed prototype directly, without running anything locally:
+
+**<https://recommender.slackers.dev>**
+
+> ⚠️ **Note:** The hosted demo will be available only until **17 July 2026**.
+> We do not own the apartment images, and the app runs on our personal Google
+> Gemini API key, so the live deployment will be taken down after that date.
+> To use the prototype afterwards, run it locally as described below.
+
 ## What is included
 
 - FastAPI backend for onboarding images, recommendations, feedback collection,
