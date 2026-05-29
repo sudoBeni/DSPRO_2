@@ -1,4 +1,4 @@
-# ProppertyFinder - Visual Real Estate Recommender
+# PropertyFinder - Visual Real Estate Recommender
 ## HSLU Project - Module DSPRO 2
 
 ProppertyFinder is a visual, multimodal-embedding-based apartment
