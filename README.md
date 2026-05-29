@@ -1,7 +1,7 @@
 # PropertyFinder - Visual Real Estate Recommender
 ## HSLU Project - Module DSPRO 2
 
-ProppertyFinder is a visual, multimodal-embedding-based apartment
+PropertyFinder is a visual, multimodal-embedding-based apartment
 recommendation prototype. Users enter a few hard constraints, swipe through
 apartment images to express visual preferences, then receive ranked apartment
 recommendations matched on combined image and text embeddings. The app also records feedback so the
